@@ -1,0 +1,28 @@
+node_modules/
+.env
+*.db
+*.log
+dist/
+.DS_Store
+backend/config/branches.json
+
+# Test output files
+test-output.txt
+sample-response.json
+invoice-detail.json
+*.csv
+*.xlsx
+
+# Database backups
+database/
+*.backup
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

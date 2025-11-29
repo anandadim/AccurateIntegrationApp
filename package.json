@@ -1,0 +1,27 @@
+{
+  "name": "accurate-api-integration",
+  "version": "1.0.0",
+  "description": "Web app untuk integrasi Accurate Online API",
+  "main": "backend/server.js",
+  "scripts": {
+    "dev": "node backend/server.js",
+    "frontend": "cd frontend && npm run dev",
+    "test:db": "node test-postgresql.js",
+    "test:workflow": "node test-complete-workflow.js"
+  },
+  "keywords": [
+    "accurate",
+    "api",
+    "fastify",
+    "vue"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@fastify/cors": "^8.5.0",
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.0",
+    "fastify": "^4.25.0",
+    "pg": "^8.16.3"
+  }
+}

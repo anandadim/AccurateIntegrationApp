@@ -1,0 +1,26 @@
+{
+  "branches": [
+    {
+      "id": "branch-1",
+      "name": "Cabang 1 - [Nama Cabang]",
+      "dbId": "YOUR_DB_ID",
+      "credentials": {
+        "appKey": "YOUR_APP_KEY",
+        "signatureSecret": "YOUR_SIGNATURE_SECRET",
+        "clientId": "YOUR_CLIENT_ID_TOKEN"
+      },
+      "active": true
+    },
+    {
+      "id": "branch-2",
+      "name": "Cabang 2 - [Nama Cabang]",
+      "dbId": "YOUR_DB_ID",
+      "credentials": {
+        "appKey": "YOUR_APP_KEY",
+        "signatureSecret": "YOUR_SIGNATURE_SECRET",
+        "clientId": "YOUR_CLIENT_ID_TOKEN"
+      },
+      "active": true
+    }
+  ]
+}
