@@ -1,0 +1,470 @@
+diff --git a/.env.example b/.env.example
+deleted file mode 100644
+index 4746a57..0000000
+--- a/.env.example
++++ /dev/null
+@@ -1,18 +0,0 @@
+-# Accurate Online API Credentials (Legacy - for single branch)
+-ACCURATE_APP_KEY=your_app_key_here
+-ACCURATE_SIGNATURE_SECRET=your_signature_secret_here
+-ACCURATE_CLIENT_ID=your_client_id_token_here
+-
+-# Server Config
+-PORT=3000
+-NODE_ENV=development
+-
+-# Database - PostgreSQL
+-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/accurate_db
+-
+-# Or use individual params:
+-# DB_HOST=localhost
+-# DB_PORT=5432
+-# DB_NAME=accurate_db
+-# DB_USER=postgres
+-# DB_PASSWORD=postgres
+diff --git a/backend/config/database.js b/backend/config/database.js
+index 08fdd74..255748f 100644
+--- a/backend/config/database.js
++++ b/backend/config/database.js
+@@ -2,6 +2,10 @@ const { Pool } = require('pg');
+ 
+ // Create connection pool
+ const pool = new Pool({
++    user: 'postgres',
++  host: 'localhost',
++  database: 'accurate_db',
++  password: 'postgres',
+   connectionString: process.env.DATABASE_URL,
+   max: 20, // Maximum connections (16 cabang + buffer)
+   idleTimeoutMillis: 30000,
+diff --git a/frontend/src/components/SalesInvoiceTable.vue b/frontend/src/components/SalesInvoiceTable.vue
+index 6579ec1..e544041 100644
+--- a/frontend/src/components/SalesInvoiceTable.vue
++++ b/frontend/src/components/SalesInvoiceTable.vue
+@@ -1,91 +1,158 @@
+ <template>
+-  <div class="invoice-container">
+-    <div v-if="summary" class="summary-box">
+-      <h3>Summary</h3>
+-      <p>Total Records: {{ summary.total }}</p>
+-      <p>Fetched: {{ summary.fetched }} invoices</p>
+-      <p>Page: {{ summary.page }} | Page Size: {{ summary.pageSize }}</p>
++  <div class="min-h-screen bg-gray-50 p-6">
++    <!-- Header -->
++    <div class="mb-8">
++      <h1 class="text-2xl font-bold text-gray-800 mb-2">Sales Invoices</h1>
++      <p class="text-gray-600"></p>
+     </div>
+-
+-    <div v-if="items && items.length > 0">
+-      <h3>Sales Invoice Details</h3>
+-      
+-      <div v-for="invoice in items" :key="invoice.d?.id" class="invoice-card">
+-        <div class="invoice-header">
+-          <h4>{{ invoice.d?.number || 'N/A' }}</h4>
+-          <span class="invoice-date">{{ formatDate(invoice.d?.transDate) }}</span>
+-        </div>
+-        
+-        <div class="invoice-info">
+-          <div class="info-row">
+-            <strong>ID Pelanggan:</strong> {{ invoice.d?.customer?.customerNo || 'N/A' }}
+-          </div>
+-          <div class="info-row">
+-            <strong>Pelanggan:</strong> {{ invoice.d?.customer?.name || 'N/A' }}
+-          </div>
+-          <div class="info-row">
+-            <strong>HP Pelanggan:</strong> {{ invoice.d?.customer?.contactInfo?.mobilePhone || 'N/A' }}
+-          </div>
+-          <div class="info-row">
+-            <strong>Total:</strong> {{ formatCurrency(invoice.d?.subTotal) }}
+-          </div>
+-        </div>
+-
+-        <!-- Detail Items Table -->
+-        <div v-if="invoice.d?.detailItem && invoice.d.detailItem.length > 0" class="items-table-container">
+-          <table class="items-table">
+-            <thead>
+-              <tr>
+-                <th>Tanggal</th>
+-                <th>No. Faktur</th>
+-                <th>No. Barang</th>
+-                <th>Keterangan Barang</th>
+-                <th>Kuantitas</th>
+-                <th>Unit</th>
+-                <th>Harga Satuan</th>
+-                <th>Jumlah</th>
+-                <th>Gudang</th>
+-                <th>ID Pelanggan</th>
+-                <th>Pelanggan</th>
+-                <th>Sales</th>
+-                <th>HP Pelanggan</th>
+-                <th>Diskon</th>
+-                <th>Nama Kategori Barang</th>
+-              </tr>
+-            </thead>
+-            <tbody>
+-              <tr v-for="(item, idx) in invoice.d.detailItem" :key="idx">
+-                <td>{{ formatDate(invoice.d?.transDate) }}</td>
+-                <td>{{ invoice.d?.number || 'N/A' }}</td>
+-                <td>{{ item.item?.no || 'N/A' }}</td>
+-                <td class="item-desc">{{ item.item?.name || 'N/A' }}</td>
+-                <td class="text-right">{{ formatNumber(item.quantity) }}</td>
+-                <td>{{ item.itemUnit?.name || 'N/A' }}</td>
+-                <td class="text-right">{{ formatCurrency(item.unitPrice) }}</td>
+-                <td class="text-right">{{ formatCurrency(item.salesAmountBase) }}</td>
+-                <td>{{ item.warehouse?.name || 'N/A' }}</td>
+-                <td>{{ invoice.d?.customer?.customerNo || 'N/A' }}</td>
+-                <td>{{ invoice.d?.customer?.name || 'N/A' }}</td>
+-                <td>{{ item.salesmanName || item.salesmanList?.[0]?.name || invoice.d?.masterSalesmanName || 'N/A' }}</td>
+-                <td>{{ invoice.d?.customer?.contactInfo?.mobilePhone || 'N/A' }}</td>
+-                <td class="text-right">{{ formatCurrency(item.itemCashDiscount || 0) }}</td>
+-                <td>{{ item.item?.itemCategoryId || 'N/A' }}</td>
+-              </tr>
+-            </tbody>
+-            <tfoot>
+-              <tr class="total-row">
+-                <td colspan="7"><strong>Grand Total</strong></td>
+-                <td class="text-right"><strong>{{ formatCurrency(invoice.d?.subTotal) }}</strong></td>
+-                <td colspan="7"></td>
+-              </tr>
+-            </tfoot>
+-          </table>
+-        </div>
++    
++    <div class="container">
++      <h2></h2>
++      <p class="text-gray-600">View and manage your sales invoices in one place</p>
++    <!-- Summary Table -->
++    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mb-6">
++      <div class="relative overflow-auto">
++        <table class="min-w-full divide-y divide-gray-200">
++          <thead class="bg-gray-50">
++            <tr>
++              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
++                Total Records
++              </th>
++              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
++                Fetched Invoices
++              </th>
++              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
++                Page Size
++              </th>
++            </tr>
++          </thead>
++          <tbody class="bg-white divide-y divide-gray-200">
++              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
++                {{ summary.total }}
++              </td>
++              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
++                {{ summary.fetched }}
++              </td>
++              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
++                {{ summary.pageSize }}
++              </td>
++          </tbody>
++        </table>
+       </div>
+     </div>
++    </div>
++    <!-- Main Table Container -->
++    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
++      <!-- Table Wrapper with Fixed Height -->
++      <div class="relative overflow-auto" style="max-height: 70vh;">
++        <!-- Table with Minimum Width -->
++        <table class="min-w-full divide-y divide-gray-200" style="min-width: 1024px;">
++          <thead class="bg-gray-50 sticky top-0 z-10">
++            <tr>
++              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
++                Date / Invoice
++              </th>
++              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
++                Customer Details
++              </th>
++              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
++                Item Description
++              </th>
++              <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
++                Price (Per Unit)
++              </th>
++              <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
++                Qty
++              </th>
++              <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
++                Total
++              </th>
++              
++            </tr>
++          </thead>
++          <tbody class="bg-white divide-y divide-gray-200">
++            <template v-if="items && items.length > 0">
++              <template v-for="invoice in items" :key="invoice.d?.id">
++              <tr v-for="(item, idx) in invoice.d?.detailItem || []" :key="idx" 
++               class="hover:bg-gray-50">
++                <!-- Date / Invoice -->
++                <td class="px-6 py-4 whitespace-nowrap">
++                  <div class="text-sm text-gray-900">{{ formatDate(invoice.d?.transDateView) }}</div>
++                  <div class="text-sm text-blue-600 font-medium">#{{ invoice.d?.number || 'N/A' }}</div>
++                </td>
++
++                <!-- Customer Details -->
++                <td class="px-6 py-4">
++                  <div class="text-sm font-medium text-gray-900">{{ invoice.d?.customer?.name || 'N/A' }}</div>
++                  <div class="text-xs text-gray-500">ID: {{ invoice.d?.customer?.customerNo || 'N/A' }}</div>
++                </td>
++
++                <!-- Item Description -->
++                <td class="px-6 py-4">
++                  <!-- <template v-if="invoice.d?.detailItem?.length > 0"> -->
++                    <div class="text-sm font-medium text-gray-900">{{ item.item?.name || 'N/A' }}</div>
++                    <div class="text-xs text-gray-500">{{ item.item?.no || '' }}</div>
++                    <!-- <div v-if="invoice.d.detailItem.length > 1" class="text-xs text-gray-500 mt-1">
++                      +{{ invoice.d.detailItem.length - 1 }} more items
++                    </div> -->
++                  <!-- </template> -->
++                  <!-- <div v-else class="text-sm text-gray-500">No items</div> -->
++                </td>
++
++                <!-- Price (Per Unit) -->
++                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
++                  {{ formatCurrency(item.unitPrice) || 'N/A' }}
++                </td>
++
++                <!-- Qty -->
++                <td class="px-6 py-4 whitespace-nowrap text-sm text-center">
++                  
++                    {{ formatNumber(item.quantity) }}<span class="text-gray-400">{{ item.itemUnit?.name || '' }}</span>
++                 </td>
++
++                <!-- Total -->
++                <!-- <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right">
++                  {{ formatCurrency(invoice.d?.subTotal) }}
++                </td>
+ 
+-    <div v-else-if="!loading">
+-      <p>No data available</p>
++                 -->
++              </tr>
++              <tr class="bg-gray-50 font-semibold">
++                  <td colspan="5" class="px-4 py-2 text-right text-sm text-gray-900">
++                    Invoice Total:
++                  </td>
++                  <td colspan="1" class="px-4 py-2 text-sm text-right text-gray-900">
++                    {{ formatCurrency(invoice.d?.subTotal) }}
++                  </td>
++                  <td colspan="3"></td>
++                </tr>
++              </template>
++            </template>
++            <tr v-else-if="!loading">
++              <td colspan="7" class="px-6 py-12 text-center">
++                <div class="text-gray-500">
++                  <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
++                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
++                  </svg>
++                  <h3 class="mt-2 text-sm font-medium text-gray-900">No invoices</h3>
++                  <p class="mt-1 text-sm text-gray-500">Get started by creating a new invoice.</p>
++                </div>
++              </td>
++            </tr>
++            <tr v-if="loading">
++              <td colspan="7" class="px-6 py-12 text-center">
++                <div class="flex flex-col items-center justify-center">
++                  <svg class="animate-spin h-8 w-8 text-blue-500 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
++                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
++                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
++                  </svg>
++                  <span class="text-sm text-gray-500">Loading invoices...</span>
++                </div>
++              </td>
++            </tr>
++          </tbody>
++        </table>
++      </div>
+     </div>
+   </div>
+ </template>
+@@ -136,115 +203,96 @@ export default {
+ </script>
+ 
+ <style scoped>
+-.invoice-container {
+-  margin-top: 20px;
+-}
+-
+-.summary-box {
+-  background: #e3f2fd;
+-  padding: 16px;
+-  border-radius: 8px;
+-  margin-bottom: 20px;
+-}
+-
+-.summary-box h3 {
+-  margin-top: 0;
+-  margin-bottom: 12px;
+-}
+-
+-.summary-box p {
+-  margin: 4px 0;
+-}
+-
+-.invoice-card {
+-  background: white;
+-  border: 1px solid #ddd;
+-  border-radius: 8px;
+-  padding: 20px;
+-  margin-bottom: 20px;
+-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+-}
+-
+-.invoice-header {
+-  display: flex;
+-  justify-content: space-between;
+-  align-items: center;
+-  padding-bottom: 12px;
+-  border-bottom: 2px solid #42b983;
+-  margin-bottom: 16px;
+-}
+-
+-.invoice-header h4 {
+-  margin: 0;
+-  color: #2c3e50;
+-  font-size: 18px;
+-}
+-
+-.invoice-date {
+-  color: #666;
+-  font-size: 14px;
+-}
+-
+-.invoice-info {
+-  display: grid;
+-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+-  gap: 12px;
+-  margin-bottom: 20px;
++/* Table styles */
++table {
++  width: 100%;
++  border-collapse: collapse;
++  table-layout: auto;
+ }
+ 
+-.info-row {
+-  font-size: 14px;
++th {
++  position: sticky;
++  top: 0;
++  z-index: 10;
++  background-color: #f9fafb;
++  padding: 0.75rem 1.5rem;
++  text-align: left;
++  font-size: 0.75rem;
++  font-weight: 500;
++  color: #6b7280;
++  text-transform: uppercase;
++  letter-spacing: 0.05em;
++  border-bottom: 1px solid #e5e7eb;
+ }
+ 
+-.info-row strong {
+-  color: #555;
+-  margin-right: 8px;
++td {
++  padding: 1rem 1.5rem;
++  border-bottom: 1px solid #e5e7eb;
++  vertical-align: top;
+ }
+ 
+-.items-table-container {
+-  overflow-x: auto;
++tbody tr:last-child td {
++  border-bottom: none;
+ }
+ 
+-.items-table {
+-  width: 100%;
+-  border-collapse: collapse;
+-  font-size: 13px;
++/* Hover effect */
++tbody tr:hover {
++  background-color: #f9fafb;
+ }
+ 
+-.items-table th {
+-  background: #f8f9fa;
+-  padding: 12px 8px;
+-  text-align: left;
+-  font-weight: 600;
+-  border-bottom: 2px solid #ddd;
+-  white-space: nowrap;
++/* Scrollable container */
++.overflow-auto {
++  scrollbar-width: thin;
++  scrollbar-color: #d1d5db #f3f4f6;
++  max-height: 70vh;
++  overflow: auto;
++  display: block;
+ }
+ 
+-.items-table td {
+-  padding: 10px 8px;
+-  border-bottom: 1px solid #eee;
++/* Custom scrollbar for WebKit browsers */
++.overflow-auto::-webkit-scrollbar {
++  width: 8px;
++  height: 8px;
+ }
+ 
+-.items-table tbody tr:hover {
+-  background: #f8f9fa;
++.overflow-auto::-webkit-scrollbar-track {
++  background: #f3f4f6;
+ }
+ 
+-.item-desc {
+-  max-width: 300px;
+-  white-space: normal;
++.overflow-auto::-webkit-scrollbar-thumb {
++  background-color: #9ca3af;
++  border-radius: 4px;
+ }
+ 
+-.text-right {
+-  text-align: right;
++.overflow-auto::-webkit-scrollbar-thumb:hover {
++  background-color: #6b7280;
+ }
+ 
+-.total-row {
+-  background: #f0f0f0;
+-  font-weight: bold;
++/* For Firefox */
++@supports (scrollbar-color: #9ca3af #f3f4f6) {
++  .overflow-auto {
++    scrollbar-color: #9ca3af #f3f4f6;
++  }
+ }
+ 
+-.total-row td {
+-  padding: 12px 8px;
+-  border-top: 2px solid #ddd;
++/* Responsive adjustments */
++@media (max-width: 1024px) {
++  .overflow-auto {
++    -webkit-overflow-scrolling: touch;
++    max-height: 60vh;
++  }
++  
++  td, th {
++    padding: 0.5rem 0.75rem;
++    font-size: 0.875rem;
++  }
++  
++  .text-sm {
++    font-size: 0.8125rem;
++  }
++  
++  .text-xs {
++    font-size: 0.75rem;
++  }
+ }
+ </style>
