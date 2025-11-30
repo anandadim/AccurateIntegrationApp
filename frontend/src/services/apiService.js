@@ -217,6 +217,100 @@ const apiService = {
       console.error('Error fetching invoice summary:', error)
       throw error
     }
+  },
+
+  // === SALES ORDER METHODS ===
+
+  // Check sales order sync status
+  async checkOrderSyncStatus(options = {}) {
+    try {
+      const { branchId, dateFrom, dateTo, dateFilterType = 'transDate' } = options
+      const params = { branchId, dateFilterType }
+      
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo) params.dateTo = dateTo
+      
+      const response = await axios.get(`${API_BASE}/sales-orders/check-sync`, { params })
+      return response.data
+    } catch (error) {
+      console.error('Error checking order sync status:', error)
+      throw error
+    }
+  },
+
+  // Smart sync sales orders
+  async syncOrdersSmart(options = {}) {
+    try {
+      const { 
+        branchId, 
+        dateFrom, 
+        dateTo, 
+        dateFilterType = 'transDate',
+        batchSize = 20,
+        batchDelay = 500,
+        mode = 'missing'
+      } = options
+      
+      const params = { 
+        branchId, 
+        dateFilterType,
+        batchSize,
+        batchDelay,
+        mode
+      }
+      
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo) params.dateTo = dateTo
+      
+      const response = await axios.post(`${API_BASE}/sales-orders/sync-smart`, {}, { 
+        params,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      return response.data
+    } catch (error) {
+      console.error('Error in order smart sync:', error)
+      throw error
+    }
+  },
+
+  // Get synced orders from database
+  async getOrders(options = {}) {
+    try {
+      const { branchId, dateFrom, dateTo, customerId, orderStatus, limit = 100, offset = 0 } = options
+      const params = { limit, offset }
+      
+      if (branchId) params.branchId = branchId
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo) params.dateTo = dateTo
+      if (customerId) params.customerId = customerId
+      if (orderStatus) params.orderStatus = orderStatus
+      
+      const response = await axios.get(`${API_BASE}/sales-orders`, { params })
+      return response.data
+    } catch (error) {
+      console.error('Error fetching orders:', error)
+      throw error
+    }
+  },
+
+  // Get order summary
+  async getOrderSummary(options = {}) {
+    try {
+      const { branchId, dateFrom, dateTo } = options
+      const params = {}
+      
+      if (branchId) params.branchId = branchId
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo) params.dateTo = dateTo
+      
+      const response = await axios.get(`${API_BASE}/sales-orders/summary/stats`, { params })
+      return response.data
+    } catch (error) {
+      console.error('Error fetching order summary:', error)
+      throw error
+    }
   }
 }
 

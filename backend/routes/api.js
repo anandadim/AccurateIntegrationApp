@@ -1,5 +1,6 @@
 const accurateController = require('../controllers/accurateController');
 const salesInvoiceController = require('../controllers/salesInvoiceController');
+const salesOrderController = require('../controllers/salesOrderController');
 
 async function routes(fastify, options) {
   // Test endpoint
@@ -47,6 +48,23 @@ async function routes(fastify, options) {
   
   // Get summary statistics
   fastify.get('/sales-invoices/summary/stats', salesInvoiceController.getSummary);
+
+  // === Sales Order Endpoints (PostgreSQL) ===
+  
+  // Check sync status (compare API vs DB)
+  fastify.get('/sales-orders/check-sync', salesOrderController.checkSyncStatus);
+  
+  // Smart sync: Only sync new + updated orders
+  fastify.post('/sales-orders/sync-smart', salesOrderController.syncSmart);
+  
+  // Get sales orders from database
+  fastify.get('/sales-orders', salesOrderController.getOrders);
+  
+  // Get order detail by ID
+  fastify.get('/sales-orders/:id', salesOrderController.getOrderById);
+  
+  // Get summary statistics
+  fastify.get('/sales-orders/summary/stats', salesOrderController.getSummary);
 }
 
 module.exports = routes;
