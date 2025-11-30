@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-const ACCURATE_BASE_URL = 'https://cday5l.pvt1.accurate.id/accurate/api';
+const DEFAULT_BASE_URL = 'https://cday5l.pvt1.accurate.id/accurate/api';
 
 // Load branches config
 let branchesConfig = null;
@@ -27,20 +27,26 @@ const clearBranchesCache = () => {
   console.log('🔄 Branches cache cleared');
 };
 
-// Get branch credentials
-const getBranchCredentials = (branchId) => {
+// Get branch credentials and baseUrl
+const getBranchConfig = (branchId) => {
   const config = loadBranchesConfig();
   const branch = config.branches.find(b => b.id === branchId && b.active);
   
   if (branch) {
-    return branch.credentials;
+    return {
+      credentials: branch.credentials,
+      baseUrl: branch.baseUrl || DEFAULT_BASE_URL
+    };
   }
   
   // Fallback to .env
   return {
-    appKey: process.env.ACCURATE_APP_KEY,
-    signatureSecret: process.env.ACCURATE_SIGNATURE_SECRET,
-    clientId: process.env.ACCURATE_CLIENT_ID
+    credentials: {
+      appKey: process.env.ACCURATE_APP_KEY,
+      signatureSecret: process.env.ACCURATE_SIGNATURE_SECRET,
+      clientId: process.env.ACCURATE_CLIENT_ID
+    },
+    baseUrl: DEFAULT_BASE_URL
   };
 };
 
@@ -54,7 +60,10 @@ const generateSignature = (timestamp, secret) => {
 
 // Helper untuk create axios instance dengan auth
 const createApiClient = (dbId = null, branchId = null) => {
-  const credentials = getBranchCredentials(branchId);
+  const branchConfig = getBranchConfig(branchId);
+  const credentials = branchConfig.credentials;
+  const baseUrl = branchConfig.baseUrl;
+  
   const timestamp = new Date().toISOString();
   const signature = generateSignature(timestamp, credentials.signatureSecret);
   
@@ -70,7 +79,7 @@ const createApiClient = (dbId = null, branchId = null) => {
   }
 
   return axios.create({
-    baseURL: ACCURATE_BASE_URL,
+    baseURL: baseUrl,
     headers
   });
 };
