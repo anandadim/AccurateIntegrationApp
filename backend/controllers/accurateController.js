@@ -5,8 +5,26 @@ const accurateController = {
   // Get all branches
   async getBranches(request, reply) {
     try {
-      const branches = accurateService.getBranches();
-      return { success: true, data: branches };
+      const { reload } = request.query;
+      const branches = reload === 'true' 
+        ? accurateService.reloadBranches() 
+        : accurateService.getBranches();
+      return { success: true, data: branches, count: branches.length };
+    } catch (error) {
+      reply.code(500);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Reload branches config
+  async reloadBranches(request, reply) {
+    try {
+      const branches = accurateService.reloadBranches();
+      return { 
+        success: true, 
+        message: `Reloaded ${branches.length} branches`,
+        data: branches 
+      };
     } catch (error) {
       reply.code(500);
       return { success: false, error: error.message };

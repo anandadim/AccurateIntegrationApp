@@ -3,12 +3,23 @@ import axios from 'axios'
 const API_BASE = '/api'
 
 const apiService = {
-  async getBranches() {
+  async getBranches(reload = false) {
     try {
-      const response = await axios.get(`${API_BASE}/branches`)
+      const params = reload ? { reload: 'true' } : {}
+      const response = await axios.get(`${API_BASE}/branches`, { params })
       return response.data
     } catch (error) {
       console.error('Error fetching branches:', error)
+      throw error
+    }
+  },
+
+  async reloadBranches() {
+    try {
+      const response = await axios.post(`${API_BASE}/branches/reload`)
+      return response.data
+    } catch (error) {
+      console.error('Error reloading branches:', error)
       throw error
     }
   },
@@ -62,6 +73,148 @@ const apiService = {
       return response.data
     } catch (error) {
       console.error('Error fetching list with details:', error)
+      throw error
+    }
+  },
+
+  // NEW: Count invoices (dry-run)
+  async countInvoices(options = {}) {
+    try {
+      const { branchId, dateFrom, dateTo, dateFilterType = 'createdDate' } = options
+      const params = { branchId, dateFilterType }
+      
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo) params.dateTo = dateTo
+      
+      const response = await axios.get(`${API_BASE}/sales-invoices/count`, { params })
+      return response.data
+    } catch (error) {
+      console.error('Error counting invoices:', error)
+      throw error
+    }
+  },
+
+  // NEW: Check sync status (compare API vs DB)
+  async checkSyncStatus(options = {}) {
+    try {
+      const { branchId, dateFrom, dateTo, dateFilterType = 'createdDate' } = options
+      const params = { branchId, dateFilterType }
+      
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo) params.dateTo = dateTo
+      
+      const response = await axios.get(`${API_BASE}/sales-invoices/check-sync`, { params })
+      return response.data
+    } catch (error) {
+      console.error('Error checking sync status:', error)
+      throw error
+    }
+  },
+
+  // NEW: Smart sync (only new + updated)
+  async syncSmart(options = {}) {
+    try {
+      const { 
+        branchId, 
+        dateFrom, 
+        dateTo, 
+        dateFilterType = 'createdDate',
+        batchSize = 50,
+        batchDelay = 300,
+        mode = 'missing'  // 'missing' or 'all'
+      } = options
+      
+      const params = { 
+        branchId, 
+        dateFilterType,
+        batchSize,
+        batchDelay,
+        mode
+      }
+      
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo) params.dateTo = dateTo
+      
+      const response = await axios.post(`${API_BASE}/sales-invoices/sync-smart`, {}, { 
+        params,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      return response.data
+    } catch (error) {
+      console.error('Error in smart sync:', error)
+      throw error
+    }
+  },
+
+  // NEW: Sync invoices
+  async syncInvoices(options = {}) {
+    try {
+      const { 
+        branchId, 
+        dateFrom, 
+        dateTo, 
+        dateFilterType = 'createdDate',
+        batchSize = 50,
+        batchDelay = 300,
+        streamInsert = true,
+        maxItems
+      } = options
+      
+      const params = { 
+        branchId, 
+        dateFilterType,
+        batchSize,
+        batchDelay,
+        streamInsert: streamInsert ? 'true' : 'false'
+      }
+      
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo) params.dateTo = dateTo
+      if (maxItems) params.maxItems = maxItems
+      
+      const response = await axios.post(`${API_BASE}/sales-invoices/sync`, null, { params })
+      return response.data
+    } catch (error) {
+      console.error('Error syncing invoices:', error)
+      throw error
+    }
+  },
+
+  // Get synced invoices from database
+  async getInvoices(options = {}) {
+    try {
+      const { branchId, dateFrom, dateTo, customerId, limit = 100, offset = 0 } = options
+      const params = { limit, offset }
+      
+      if (branchId) params.branchId = branchId
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo) params.dateTo = dateTo
+      if (customerId) params.customerId = customerId
+      
+      const response = await axios.get(`${API_BASE}/sales-invoices`, { params })
+      return response.data
+    } catch (error) {
+      console.error('Error fetching invoices:', error)
+      throw error
+    }
+  },
+
+  // Get invoice summary
+  async getInvoiceSummary(options = {}) {
+    try {
+      const { branchId, dateFrom, dateTo } = options
+      const params = {}
+      
+      if (branchId) params.branchId = branchId
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo) params.dateTo = dateTo
+      
+      const response = await axios.get(`${API_BASE}/sales-invoices/summary/stats`, { params })
+      return response.data
+    } catch (error) {
+      console.error('Error fetching invoice summary:', error)
       throw error
     }
   }

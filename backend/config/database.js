@@ -2,6 +2,10 @@ const { Pool } = require('pg');
 
 // Create connection pool
 const pool = new Pool({
+    user: 'postgres',
+  host: 'localhost',
+  database: 'accurate_db',
+  password: 'postgres',
   connectionString: process.env.DATABASE_URL,
   max: 20, // Maximum connections (16 cabang + buffer)
   idleTimeoutMillis: 30000,

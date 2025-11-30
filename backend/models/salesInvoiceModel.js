@@ -13,14 +13,19 @@ const salesInvoiceModel = {
           invoice_id, invoice_number, branch_id, branch_name,
           trans_date, customer_id, customer_name,
           salesman_id, salesman_name, warehouse_id, warehouse_name,
-          subtotal, discount, tax, total, raw_data
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+          subtotal, discount, tax, total, 
+          payment_status, due_date, remaining_amount,
+          raw_data
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
         ON CONFLICT (invoice_id, branch_id) 
         DO UPDATE SET
           invoice_number = EXCLUDED.invoice_number,
           trans_date = EXCLUDED.trans_date,
           customer_name = EXCLUDED.customer_name,
           total = EXCLUDED.total,
+          payment_status = EXCLUDED.payment_status,
+          due_date = EXCLUDED.due_date,
+          remaining_amount = EXCLUDED.remaining_amount,
           raw_data = EXCLUDED.raw_data,
           updated_at = CURRENT_TIMESTAMP
         RETURNING id
@@ -42,6 +47,9 @@ const salesInvoiceModel = {
         invoiceData.discount || 0,
         invoiceData.tax || 0,
         invoiceData.total,
+        invoiceData.payment_status || null,
+        invoiceData.due_date || null,
+        invoiceData.remaining_amount || 0,
         JSON.stringify(invoiceData.raw_data || {})
       ];
 
@@ -59,8 +67,9 @@ const salesInvoiceModel = {
         const itemQuery = `
           INSERT INTO sales_invoice_items (
             invoice_id, branch_id, item_no, item_name,
-            quantity, unit_name, unit_price, discount, amount
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            quantity, unit_name, unit_price, discount, amount,
+            warehouse_name, salesman_name, item_category
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         `;
 
         for (const item of items) {
@@ -73,7 +82,10 @@ const salesInvoiceModel = {
             item.unit_name,
             item.unit_price,
             item.discount || 0,
-            item.amount
+            item.amount,
+            item.warehouse_name || null,
+            item.salesman_name || null,
+            item.item_category || null
           ]);
         }
       }
@@ -104,6 +116,24 @@ const salesInvoiceModel = {
       ...invoiceResult.rows[0],
       items: itemsResult.rows
     };
+  },
+
+  // Get existing invoices for sync check (lightweight)
+  async getExistingForSync(branchId, dateFrom, dateTo) {
+    const query = `
+      SELECT 
+        invoice_id,
+        invoice_number,
+        raw_data->>'optLock' as opt_lock,
+        updated_at
+      FROM sales_invoices 
+      WHERE branch_id = $1 
+        AND trans_date BETWEEN $2 AND $3
+      ORDER BY invoice_id
+    `;
+    
+    const result = await db.query(query, [branchId, dateFrom, dateTo]);
+    return result.rows;
   },
 
   // List invoices with filters
