@@ -4,10 +4,16 @@
     
     <div class="view-toggle">
       <button 
-        @click="currentView = 'sync'" 
-        :class="{ active: currentView === 'sync' }"
+        @click="currentView = 'invoice-sync'" 
+        :class="{ active: currentView === 'invoice-sync' }"
       >
-        🔄 Sync Manager
+        📄 Sales Invoice Sync
+      </button>
+      <button 
+        @click="currentView = 'order-sync'" 
+        :class="{ active: currentView === 'order-sync' }"
+      >
+        📦 Sales Order Sync
       </button>
       <button 
         @click="currentView = 'api'" 
@@ -17,8 +23,11 @@
       </button>
     </div>
 
-    <!-- Sync Manager View -->
-    <SyncManager v-if="currentView === 'sync'" :branches="branches" />
+    <!-- Sales Invoice Sync View -->
+    <SyncManager v-if="currentView === 'invoice-sync'" :branches="branches" />
+
+    <!-- Sales Order Sync View -->
+    <SalesOrderSync v-if="currentView === 'order-sync'" :branches="branches" />
 
     <!-- API Testing View -->
     <div v-if="currentView === 'api'">
@@ -136,15 +145,17 @@ import { ref, computed, onMounted } from 'vue'
 import apiService from './services/apiService'
 import SalesInvoiceTable from './components/SalesInvoiceTable.vue'
 import SyncManager from './components/SyncManager.vue'
+import SalesOrderSync from './components/SalesOrderSync.vue'
 
 export default {
   name: 'App',
   components: {
     SalesInvoiceTable,
-    SyncManager
+    SyncManager,
+    SalesOrderSync
   },
   setup() {
-    const currentView = ref('sync')
+    const currentView = ref('invoice-sync')
     const branches = ref([])
     const selectedBranch = ref('')
     const selectedDbId = ref('')
