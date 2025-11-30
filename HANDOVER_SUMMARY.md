@@ -97,6 +97,40 @@ FROM sales_invoice_items ORDER BY id DESC LIMIT 5;
 
 ---
 
+## ✅ LATEST UPDATES (30 Nov 2025 - Session 2)
+
+### Frontend Improvements:
+1. ✅ **SyncManager Component** - New sync management UI
+   - Count invoices (dry-run)
+   - Sync with progress tracking
+   - Monthly sync helper (Jan-Nov 2025)
+   - Batch settings (size & delay)
+   
+2. ✅ **SalesInvoiceTable Fixed** - HTML errors resolved
+   - Fixed missing `<tr>` wrapper in summary table
+   - Fixed empty `<h2>` and `<p>` tags
+   - Added 3 new columns: Warehouse, Salesman, Category
+   - Updated colspan for proper layout
+
+3. ✅ **API Service Extended**
+   - `countInvoices()` - Dry-run count
+   - `syncInvoices()` - Sync with streaming
+   - `getInvoices()` - Query from database
+   - `getInvoiceSummary()` - Statistics
+
+4. ✅ **Backend Improvements**
+   - Streaming insert (insert per batch)
+   - Better logging with emoji
+   - Progress tracking
+   - Error resilience
+
+### New Files:
+- `frontend/src/components/SyncManager.vue`
+- `FRONTEND_GUIDE.md`
+- `SYSTEM_FLOW_SUMMARY.md`
+
+---
+
 ## 🚧 PENDING WORK
 
 ### 1. **Re-sync Data** (PRIORITY 1)
@@ -118,30 +152,15 @@ WHERE warehouse_name IS NOT NULL
 LIMIT 5;
 ```
 
-### 2. **Fix Frontend Table** (PRIORITY 2)
+### 2. **Frontend Table** ✅ FIXED
 **File:** `frontend/src/components/SalesInvoiceTable.vue`
 
-**Issues to Fix:**
-- ❌ HTML structure error (missing closing tags)
-- ❌ Missing `<tr>` wrapper in summary table (line 30-38)
-- ❌ Empty `<h2>` and `<p>` tags (line 8-12)
-
-**Required Changes:**
-```html
-<!-- Line 8-12: Fix container -->
-<div class="container">
-  <h2 class="text-xl font-bold">Sales Invoices</h2>
-  <p class="text-gray-600">View and manage your sales invoices</p>
-</div>
-
-<!-- Line 30-38: Add <tr> wrapper -->
-<tbody class="bg-white divide-y divide-gray-200">
-  <tr>  <!-- ADD THIS -->
-    <td class="px-6 py-4...">{{ summary.total }}</td>
-    <!-- ... -->
-  </tr>  <!-- ADD THIS -->
-</tbody>
-```
+**Fixed Issues:**
+- ✅ HTML structure error (missing closing tags)
+- ✅ Missing `<tr>` wrapper in summary table
+- ✅ Empty `<h2>` and `<p>` tags
+- ✅ Added 3 new columns: Warehouse, Salesman, Category
+- ✅ Updated colspan from 7 to 9
 
 ### 3. **Implement Header-Detail View** (PRIORITY 3)
 **Goal:** Click invoice header → Show detail items in new page/modal

@@ -118,6 +118,24 @@ const salesInvoiceModel = {
     };
   },
 
+  // Get existing invoices for sync check (lightweight)
+  async getExistingForSync(branchId, dateFrom, dateTo) {
+    const query = `
+      SELECT 
+        invoice_id,
+        invoice_number,
+        raw_data->>'optLock' as opt_lock,
+        updated_at
+      FROM sales_invoices 
+      WHERE branch_id = $1 
+        AND trans_date BETWEEN $2 AND $3
+      ORDER BY invoice_id
+    `;
+    
+    const result = await db.query(query, [branchId, dateFrom, dateTo]);
+    return result.rows;
+  },
+
   // List invoices with filters
   async list(filters = {}) {
     let query = 'SELECT * FROM sales_invoices WHERE 1=1';

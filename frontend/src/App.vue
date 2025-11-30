@@ -4,18 +4,38 @@
     
     <div class="view-toggle">
       <button 
-        @click="viewMode = 'simple'" 
-        :class="{ active: viewMode === 'simple' }"
+        @click="currentView = 'sync'" 
+        :class="{ active: currentView === 'sync' }"
       >
-        Simple View
+        🔄 Sync Manager
       </button>
       <button 
-        @click="viewMode = 'table'" 
-        :class="{ active: viewMode === 'table' }"
+        @click="currentView = 'api'" 
+        :class="{ active: currentView === 'api' }"
       >
-        Table View
+        🔌 API Testing
       </button>
     </div>
+
+    <!-- Sync Manager View -->
+    <SyncManager v-if="currentView === 'sync'" :branches="branches" />
+
+    <!-- API Testing View -->
+    <div v-if="currentView === 'api'">
+      <div class="view-toggle" style="margin-top: 16px;">
+        <button 
+          @click="viewMode = 'simple'" 
+          :class="{ active: viewMode === 'simple' }"
+        >
+          Simple View
+        </button>
+        <button 
+          @click="viewMode = 'table'" 
+          :class="{ active: viewMode === 'table' }"
+        >
+          Table View
+        </button>
+      </div>
     
     <div class="container">
       <h2>1. Pilih Cabang</h2>
@@ -107,20 +127,24 @@
       <!-- Simple JSON View -->
       <pre v-else>{{ JSON.stringify(responseData, null, 2) }}</pre>
     </div>
+    </div>
   </div>
 </template>
 
 <script>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import apiService from './services/apiService'
 import SalesInvoiceTable from './components/SalesInvoiceTable.vue'
+import SyncManager from './components/SyncManager.vue'
 
 export default {
   name: 'App',
   components: {
-    SalesInvoiceTable
+    SalesInvoiceTable,
+    SyncManager
   },
   setup() {
+    const currentView = ref('sync')
     const branches = ref([])
     const selectedBranch = ref('')
     const selectedDbId = ref('')
@@ -159,6 +183,11 @@ export default {
         loading.value = false
       }
     }
+
+    // Auto-load branches on mount
+    onMounted(() => {
+      loadBranches()
+    })
 
     const onBranchChange = () => {
       const branch = branches.value.find(b => b.id === selectedBranch.value)
@@ -229,6 +258,7 @@ export default {
     }
 
     return {
+      currentView,
       branches,
       selectedBranch,
       selectedBranchName,

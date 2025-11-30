@@ -7,17 +7,24 @@ const ACCURATE_BASE_URL = 'https://cday5l.pvt1.accurate.id/accurate/api';
 
 // Load branches config
 let branchesConfig = null;
-const loadBranchesConfig = () => {
-  if (!branchesConfig) {
+const loadBranchesConfig = (forceReload = false) => {
+  if (!branchesConfig || forceReload) {
     const configPath = path.join(__dirname, '../config/branches.json');
     if (fs.existsSync(configPath)) {
       branchesConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      console.log(`✅ Loaded ${branchesConfig.branches?.length || 0} branches from config`);
     } else {
       console.warn('branches.json not found, using .env credentials');
       branchesConfig = { branches: [] };
     }
   }
   return branchesConfig;
+};
+
+// Clear cache (for reload)
+const clearBranchesCache = () => {
+  branchesConfig = null;
+  console.log('🔄 Branches cache cleared');
 };
 
 // Get branch credentials
@@ -70,13 +77,19 @@ const createApiClient = (dbId = null, branchId = null) => {
 
 const accurateService = {
   // Get all branches from config
-  getBranches() {
-    const config = loadBranchesConfig();
+  getBranches(forceReload = false) {
+    const config = loadBranchesConfig(forceReload);
     return config.branches.filter(b => b.active).map(b => ({
       id: b.id,
       name: b.name,
       dbId: b.dbId
     }));
+  },
+
+  // Reload branches config (clear cache)
+  reloadBranches() {
+    clearBranchesCache();
+    return this.getBranches(true);
   },
 
   // Get list databases (cabang)
@@ -123,17 +136,203 @@ const accurateService = {
     }
   },
 
+  // Fetch list only (without details) - for sync check
+  async fetchListOnly(endpoint, dbId, filters = {}, branchId = null) {
+    try {
+      const client = createApiClient(dbId, branchId);
+      const url = `/${endpoint}/list.do`;
+      
+      // Force pageSize to 1000 for efficiency
+      const params = {
+        ...filters,
+        'sp.pageSize': 1000
+      };
+      
+      console.log(`🌐 API Request: ${url}`);
+      console.log(`📦 Params:`, JSON.stringify(params, null, 2));
+      
+      // Use paramsSerializer to handle array properly
+      const response = await client.get(url, { 
+        params,
+        paramsSerializer: {
+          serialize: (params) => {
+            const parts = [];
+            for (const [key, value] of Object.entries(params)) {
+              if (Array.isArray(value)) {
+                // For array, add same key multiple times
+                value.forEach(v => parts.push(`${key}=${encodeURIComponent(v)}`));
+              } else {
+                parts.push(`${key}=${encodeURIComponent(value)}`);
+              }
+            }
+            const queryString = parts.join('&');
+            console.log(`🔗 Query String: ${queryString}`);
+            return queryString;
+          }
+        }
+      });
+      
+      console.log(`✅ Request sent successfully`);
+      
+      if (!response.data.s || !response.data.d) {
+        throw new Error('Invalid response from list endpoint');
+      }
+      
+      return {
+        success: true,
+        items: response.data.d,  // Array of invoice objects with id, number, optLock, etc
+        pagination: response.data.sp
+      };
+    } catch (error) {
+      console.error(`Error fetching ${endpoint} list:`, error.response?.data || error.message);
+      throw new Error(`Failed to fetch ${endpoint} list from Accurate API`);
+    }
+  },
+
   // Fetch list dengan filter
   async fetchDataWithFilter(endpoint, dbId, filters = {}, branchId = null) {
     try {
       const client = createApiClient(dbId, branchId);
       const url = `/${endpoint}.do`;
       
-      const response = await client.get(url, { params: filters });
+      // Force pageSize to 1000 if not already set
+      const params = {
+        ...filters
+      };
+      
+      // Add pageSize if not present and this is a list endpoint
+      if (!params['sp.pageSize'] && endpoint.includes('/list')) {
+        params['sp.pageSize'] = 1000;
+      }
+      
+      const response = await client.get(url, { params });
       return response.data;
     } catch (error) {
       console.error(`Error fetching ${endpoint} with filters:`, error.response?.data || error.message);
       throw new Error(`Failed to fetch ${endpoint} from Accurate API`);
+    }
+  },
+
+  // NEW: Fetch and stream insert (insert per batch, not wait all)
+  async fetchAndStreamInsert(endpoint, dbId, options = {}, branchId = null, branchName = '', onBatchCallback) {
+    try {
+      const { 
+        maxItems = null, 
+        dateFrom, 
+        dateTo, 
+        dateFilterType = 'createdDate',
+        batchSize = 50,
+        batchDelay = 300
+      } = options;
+      
+      const today = new Date().toISOString().split('T')[0];
+      
+      const formatDateForAccurate = (dateStr) => {
+        if (!dateStr) return null;
+        const [year, month, day] = dateStr.split('-');
+        return `${day}/${month}/${year}`;
+      };
+      
+      const fromDate = formatDateForAccurate(dateFrom || today);
+      const toDate = formatDateForAccurate(dateTo || today);
+      
+      const filterKey = `filter.${dateFilterType}`;
+      const filters = {
+        [`${filterKey}.from`]: fromDate,
+        [`${filterKey}.to`]: toDate
+      };
+      
+      // 1. Get first page
+      console.log(`📋 Fetching list from ${fromDate} to ${toDate}...`);
+      const firstResponse = await this.fetchDataWithFilter(`${endpoint}/list`, dbId, filters, branchId);
+      
+      if (!firstResponse.s || !firstResponse.d) {
+        throw new Error('Invalid response from list endpoint');
+      }
+
+      const totalRows = firstResponse.sp.rowCount;
+      const pageSize = firstResponse.sp.pageSize || 1000;
+      const totalPages = Math.ceil(totalRows / pageSize);
+      
+      console.log(`📊 Total: ${totalRows} invoices, ${totalPages} pages`);
+      
+      let allItems = [...firstResponse.d];
+      
+      // 2. Fetch remaining pages
+      if (totalPages > 1) {
+        console.log(`📄 Fetching ${totalPages - 1} more pages...`);
+        
+        for (let page = 2; page <= totalPages; page++) {
+          const pageFilters = { ...filters, 'sp.page': page };
+          const pageResponse = await this.fetchDataWithFilter(`${endpoint}/list`, dbId, pageFilters, branchId);
+          
+          if (pageResponse.s && pageResponse.d) {
+            allItems = allItems.concat(pageResponse.d);
+            process.stdout.write(`📄 Page ${page}/${totalPages} (${allItems.length} items)\r`);
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        console.log(`\n✅ All pages fetched: ${allItems.length} items`);
+      }
+      
+      // 3. Apply maxItems limit
+      const itemsToFetch = maxItems ? allItems.slice(0, maxItems) : allItems;
+      console.log(`🔍 Fetching details for ${itemsToFetch.length} invoices...`);
+
+      // 4. Fetch details AND insert per batch (streaming)
+      let totalSaved = 0;
+      let totalErrors = 0;
+      const totalBatches = Math.ceil(itemsToFetch.length / batchSize);
+      
+      for (let i = 0; i < itemsToFetch.length; i += batchSize) {
+        const batch = itemsToFetch.slice(i, i + batchSize);
+        const batchNum = Math.floor(i / batchSize) + 1;
+        
+        console.log(`\n📦 Batch ${batchNum}/${totalBatches} (${batch.length} items)`);
+        console.log(`   ├─ Fetching details...`);
+        
+        const batchPromises = batch.map(item => 
+          this.fetchDetail(endpoint, item.id, dbId, branchId)
+            .catch(err => {
+              console.error(`   ├─ ❌ Failed ID ${item.id}: ${err.message}`);
+              return { error: true, id: item.id, message: err.message };
+            })
+        );
+        
+        const batchDetails = await Promise.all(batchPromises);
+        const successDetails = batchDetails.filter(d => !d.error);
+        
+        console.log(`   ├─ Fetched: ${successDetails.length}/${batch.length}`);
+        console.log(`   └─ Inserting to database...`);
+        
+        // Insert this batch immediately
+        if (onBatchCallback && successDetails.length > 0) {
+          const saveResult = await onBatchCallback(successDetails);
+          totalSaved += saveResult.savedCount;
+          totalErrors += saveResult.errorCount;
+          
+          console.log(`   ✅ Batch ${batchNum} done: ${saveResult.savedCount} saved, ${saveResult.errorCount} errors`);
+        }
+        
+        // Delay between batches
+        if (i + batchSize < itemsToFetch.length) {
+          await new Promise(resolve => setTimeout(resolve, batchDelay));
+        }
+      }
+      
+      console.log(`\n🎉 All batches completed!`);
+
+      return {
+        success: true,
+        totalFetched: itemsToFetch.length,
+        savedCount: totalSaved,
+        errorCount: totalErrors
+      };
+
+    } catch (error) {
+      console.error(`❌ Error in fetchAndStreamInsert:`, error.message);
+      throw error;
     }
   },
 
@@ -163,10 +362,13 @@ const accurateService = {
       const toDate = formatDateForAccurate(dateTo || today);
       
       // Support flexible date filter: transDate, createdDate, modifiedDate
+      // Accurate API format: filter.{field}.val as array
+      // Axios converts array to: filter.{field}.val=from&filter.{field}.val=to
       const filterKey = `filter.${dateFilterType}`;
       const filters = {
-        [`${filterKey}.from`]: fromDate,
-        [`${filterKey}.to`]: toDate
+        [`${filterKey}.op`]: 'BETWEEN',  // Operator
+        [`${filterKey}.val`]: [fromDate, toDate]  // Array for multiple values
+        // 'filter.outstanding': false  // Commented: fetch all invoices
       };
       
       // 1. Get first page to check total rows and pages

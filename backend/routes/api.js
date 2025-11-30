@@ -10,6 +10,9 @@ async function routes(fastify, options) {
   // Get branches list
   fastify.get('/branches', accurateController.getBranches);
 
+  // Reload branches config
+  fastify.post('/branches/reload', accurateController.reloadBranches);
+
   // Get database list (untuk pilih cabang)
   fastify.get('/databases', accurateController.getDatabases);
 
@@ -24,8 +27,17 @@ async function routes(fastify, options) {
 
   // === Sales Invoice Endpoints (PostgreSQL) ===
   
+  // Check sync status (compare API vs DB)
+  fastify.get('/sales-invoices/check-sync', salesInvoiceController.checkSyncStatus);
+  
+  // Count invoices without fetching (dry-run)
+  fastify.get('/sales-invoices/count', salesInvoiceController.countInvoices);
+  
   // Sync sales invoices from Accurate API to PostgreSQL
   fastify.post('/sales-invoices/sync', salesInvoiceController.syncFromAccurate);
+  
+  // Smart sync: Only sync new + updated invoices
+  fastify.post('/sales-invoices/sync-smart', salesInvoiceController.syncSmart);
   
   // Get sales invoices from database
   fastify.get('/sales-invoices', salesInvoiceController.getInvoices);

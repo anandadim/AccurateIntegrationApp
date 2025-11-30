@@ -3,12 +3,9 @@
     <!-- Header -->
     <div class="mb-8">
       <h1 class="text-2xl font-bold text-gray-800 mb-2">Sales Invoices</h1>
-      <p class="text-gray-600"></p>
+      <p class="text-gray-600">View and manage your sales invoices in one place</p>
     </div>
     
-    <div class="container">
-      <h2></h2>
-      <p class="text-gray-600">View and manage your sales invoices in one place</p>
     <!-- Summary Table -->
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mb-6">
       <div class="relative overflow-auto">
@@ -27,6 +24,7 @@
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
+            <tr>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 {{ summary.total }}
               </td>
@@ -36,11 +34,12 @@
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 {{ summary.pageSize }}
               </td>
+            </tr>
           </tbody>
         </table>
       </div>
     </div>
-    </div>
+    
     <!-- Main Table Container -->
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
       <!-- Table Wrapper with Fixed Height -->
@@ -64,10 +63,18 @@
               <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Qty
               </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Warehouse
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Salesman
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Category
+              </th>
               <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Total
               </th>
-              
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
@@ -106,30 +113,41 @@
 
                 <!-- Qty -->
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-center">
-                  
-                    {{ formatNumber(item.quantity) }}<span class="text-gray-400">{{ item.itemUnit?.name || '' }}</span>
-                 </td>
-
-                <!-- Total -->
-                <!-- <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right">
-                  {{ formatCurrency(invoice.d?.subTotal) }}
+                  {{ formatNumber(item.quantity) }} <span class="text-gray-400">{{ item.itemUnit?.name || '' }}</span>
                 </td>
 
-                 -->
+                <!-- Warehouse (NEW) -->
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {{ item.warehouse?.name || '-' }}
+                </td>
+
+                <!-- Salesman (NEW) -->
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {{ item.salesmanName || item.salesmanList?.[0]?.name || '-' }}
+                </td>
+
+                <!-- Category (NEW) -->
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {{ item.item?.itemCategoryId || '-' }}
+                </td>
+
+                <!-- Total -->
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right">
+                  {{ formatCurrency(item.salesAmountBase || item.totalPrice) }}
+                </td>
               </tr>
               <tr class="bg-gray-50 font-semibold">
-                  <td colspan="5" class="px-4 py-2 text-right text-sm text-gray-900">
+                  <td colspan="8" class="px-4 py-2 text-right text-sm text-gray-900">
                     Invoice Total:
                   </td>
-                  <td colspan="1" class="px-4 py-2 text-sm text-right text-gray-900">
+                  <td class="px-4 py-2 text-sm text-right text-gray-900">
                     {{ formatCurrency(invoice.d?.subTotal) }}
                   </td>
-                  <td colspan="3"></td>
                 </tr>
               </template>
             </template>
             <tr v-else-if="!loading">
-              <td colspan="7" class="px-6 py-12 text-center">
+              <td colspan="9" class="px-6 py-12 text-center">
                 <div class="text-gray-500">
                   <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -140,7 +158,7 @@
               </td>
             </tr>
             <tr v-if="loading">
-              <td colspan="7" class="px-6 py-12 text-center">
+              <td colspan="9" class="px-6 py-12 text-center">
                 <div class="flex flex-col items-center justify-center">
                   <svg class="animate-spin h-8 w-8 text-blue-500 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
