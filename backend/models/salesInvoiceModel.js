@@ -13,14 +13,19 @@ const salesInvoiceModel = {
           invoice_id, invoice_number, branch_id, branch_name,
           trans_date, customer_id, customer_name,
           salesman_id, salesman_name, warehouse_id, warehouse_name,
-          subtotal, discount, tax, total, raw_data
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+          subtotal, discount, tax, total, 
+          payment_status, due_date, remaining_amount,
+          raw_data
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
         ON CONFLICT (invoice_id, branch_id) 
         DO UPDATE SET
           invoice_number = EXCLUDED.invoice_number,
           trans_date = EXCLUDED.trans_date,
           customer_name = EXCLUDED.customer_name,
           total = EXCLUDED.total,
+          payment_status = EXCLUDED.payment_status,
+          due_date = EXCLUDED.due_date,
+          remaining_amount = EXCLUDED.remaining_amount,
           raw_data = EXCLUDED.raw_data,
           updated_at = CURRENT_TIMESTAMP
         RETURNING id
@@ -42,6 +47,9 @@ const salesInvoiceModel = {
         invoiceData.discount || 0,
         invoiceData.tax || 0,
         invoiceData.total,
+        invoiceData.payment_status || null,
+        invoiceData.due_date || null,
+        invoiceData.remaining_amount || 0,
         JSON.stringify(invoiceData.raw_data || {})
       ];
 

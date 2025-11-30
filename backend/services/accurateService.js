@@ -137,10 +137,17 @@ const accurateService = {
     }
   },
 
-  // Fetch list dan semua detail-nya
+  // Fetch list dan semua detail-nya dengan pagination
   async fetchListWithDetails(endpoint, dbId, options = {}, branchId = null) {
     try {
-      const { maxItems = 20, dateFrom, dateTo } = options;
+      const { 
+        maxItems = null, 
+        dateFrom, 
+        dateTo, 
+        dateFilterType = 'createdDate',
+        batchSize = 50,  // Default 50 for faster sync
+        batchDelay = 300 // Default 300ms delay
+      } = options;
       
       // Setup date filter (default: today)
       const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
@@ -155,41 +162,102 @@ const accurateService = {
       const fromDate = formatDateForAccurate(dateFrom || today);
       const toDate = formatDateForAccurate(dateTo || today);
       
+      // Support flexible date filter: transDate, createdDate, modifiedDate
+      const filterKey = `filter.${dateFilterType}`;
       const filters = {
-        'filter.transDate.from': fromDate,
-        'filter.transDate.to': toDate
+        [`${filterKey}.from`]: fromDate,
+        [`${filterKey}.to`]: toDate
       };
       
-      // 1. Get list with date filter
-      console.log(`Fetching ${endpoint} list from ${fromDate} to ${toDate}...`);
+      // 1. Get first page to check total rows and pages
+      console.log(`Fetching ${endpoint} list from ${fromDate} to ${toDate} (filter by ${dateFilterType})...`);
       console.log('Filter params:', filters);
-      const listResponse = await this.fetchDataWithFilter(`${endpoint}/list`, dbId, filters, branchId);
+      const firstResponse = await this.fetchDataWithFilter(`${endpoint}/list`, dbId, filters, branchId);
       
-      if (!listResponse.s || !listResponse.d) {
+      if (!firstResponse.s || !firstResponse.d) {
         throw new Error('Invalid response from list endpoint');
       }
 
-      const items = listResponse.d.slice(0, maxItems); // Limit items
-      console.log(`Found ${items.length} items, fetching details...`);
+      const totalRows = firstResponse.sp.rowCount;
+      const pageSize = firstResponse.sp.pageSize || 1000; // Default Accurate page size
+      const totalPages = Math.ceil(totalRows / pageSize);
+      
+      console.log(`Total rows: ${totalRows}, Page size: ${pageSize}, Total pages: ${totalPages}`);
+      
+      // Collect all items from all pages
+      let allItems = [...firstResponse.d];
+      
+      // 2. Fetch remaining pages if needed
+      if (totalPages > 1) {
+        console.log(`Fetching remaining ${totalPages - 1} pages...`);
+        
+        for (let page = 2; page <= totalPages; page++) {
+          console.log(`Fetching page ${page}/${totalPages}...`);
+          
+          const pageFilters = {
+            ...filters,
+            'sp.page': page
+          };
+          
+          const pageResponse = await this.fetchDataWithFilter(`${endpoint}/list`, dbId, pageFilters, branchId);
+          
+          if (pageResponse.s && pageResponse.d) {
+            allItems = allItems.concat(pageResponse.d);
+            console.log(`Page ${page} fetched: ${pageResponse.d.length} items (Total so far: ${allItems.length})`);
+          } else {
+            console.warn(`Page ${page} returned invalid response, skipping...`);
+          }
+          
+          // Small delay to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+      
+      console.log(`Total items collected: ${allItems.length}`);
+      
+      // 3. Apply maxItems limit (if specified)
+      const itemsToFetch = maxItems ? allItems.slice(0, maxItems) : allItems;
+      const limitMsg = maxItems ? ` (limited by maxItems: ${maxItems})` : ' (no limit)';
+      console.log(`Fetching details for ${itemsToFetch.length} items${limitMsg}...`);
 
-      // 2. Fetch details untuk setiap item
-      const detailPromises = items.map(item => 
-        this.fetchDetail(endpoint, item.id, dbId, branchId)
-          .catch(err => {
-            console.error(`Failed to fetch detail for ID ${item.id}:`, err.message);
-            return { error: true, id: item.id, message: err.message };
-          })
-      );
-
-      const details = await Promise.all(detailPromises);
+      // 4. Fetch details in batches to avoid API overload
+      const details = [];
+      const totalBatches = Math.ceil(itemsToFetch.length / batchSize);
+      
+      console.log(`Batch settings: size=${batchSize}, delay=${batchDelay}ms`);
+      
+      for (let i = 0; i < itemsToFetch.length; i += batchSize) {
+        const batch = itemsToFetch.slice(i, i + batchSize);
+        const batchNum = Math.floor(i / batchSize) + 1;
+        
+        console.log(`Fetching batch ${batchNum}/${totalBatches} (${batch.length} items)...`);
+        
+        const batchPromises = batch.map(item => 
+          this.fetchDetail(endpoint, item.id, dbId, branchId)
+            .catch(err => {
+              console.error(`Failed to fetch detail for ID ${item.id}:`, err.message);
+              return { error: true, id: item.id, message: err.message };
+            })
+        );
+        
+        const batchResults = await Promise.all(batchPromises);
+        details.push(...batchResults);
+        
+        // Delay between batches (except for last batch)
+        if (i + batchSize < itemsToFetch.length) {
+          await new Promise(resolve => setTimeout(resolve, batchDelay));
+        }
+      }
+      
+      console.log(`Completed fetching ${details.length} details (${details.filter(d => !d.error).length} success, ${details.filter(d => d.error).length} errors)`);
 
       return {
         success: true,
         summary: {
-          total: listResponse.sp.rowCount,
-          fetched: items.length,
-          page: listResponse.sp.page,
-          pageSize: listResponse.sp.pageSize
+          total: totalRows,
+          totalPages: totalPages,
+          fetched: itemsToFetch.length,
+          pageSize: pageSize
         },
         items: details.filter(d => !d.error), // Filter out errors
         errors: details.filter(d => d.error)

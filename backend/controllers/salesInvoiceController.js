@@ -5,7 +5,15 @@ const salesInvoiceController = {
   // Sync sales invoices from Accurate API
   async syncFromAccurate(request, reply) {
     try {
-      const { branchId, dateFrom, dateTo, maxItems = 100 } = request.query;
+      const { 
+        branchId, 
+        dateFrom, 
+        dateTo, 
+        maxItems, 
+        dateFilterType = 'createdDate',
+        batchSize = 50,    // Default 50 for faster sync
+        batchDelay = 300   // Default 300ms
+      } = request.query;
 
       if (!branchId) {
         return reply.code(400).send({ error: 'branchId is required' });
@@ -25,7 +33,14 @@ const salesInvoiceController = {
       const result = await accurateService.fetchListWithDetails(
         'sales-invoice',
         branch.dbId,
-        { maxItems, dateFrom, dateTo },
+        { 
+          maxItems, 
+          dateFrom, 
+          dateTo, 
+          dateFilterType,
+          batchSize: parseInt(batchSize),
+          batchDelay: parseInt(batchDelay)
+        },
         branchId
       );
 
@@ -40,6 +55,13 @@ const salesInvoiceController = {
       for (const item of result.items) {
         try {
           const invoiceData = item.d;
+          
+          // Skip if no valid data
+          if (!invoiceData || !invoiceData.id) {
+            console.warn('Skipping item with no ID:', item);
+            errorCount++;
+            continue;
+          }
           
           // Convert date from DD/MM/YYYY to YYYY-MM-DD
           const convertDate = (dateStr) => {
@@ -65,30 +87,49 @@ const salesInvoiceController = {
             discount: invoiceData.cashDiscount || 0,
             tax: invoiceData.tax1Amount || 0,
             total: invoiceData.totalAmount || 0,
+            payment_status: invoiceData.status || null,
+            due_date: convertDate(invoiceData.dueDate),
+            remaining_amount: invoiceData.remainingAmount || 0,
             raw_data: invoiceData
           };
 
           // Prepare items data
-          const items = (invoiceData.detailItem || []).map(detail => ({
-            item_no: detail.item?.no || 'N/A',
-            item_name: detail.item?.name || '',
-            quantity: detail.quantity || 0,
-            unit_name: detail.itemUnit?.name || '',
-            unit_price: detail.unitPrice || 0,
-            discount: detail.itemCashDiscount || 0,
-            amount: detail.salesAmountBase || detail.totalPrice || 0,
-            warehouse_name: detail.warehouse?.name || null,
-            salesman_name: detail.salesmanName || detail.salesmanList?.[0]?.name || null,
-            item_category: detail.item?.itemCategoryId || null
-          }));
+          const items = (invoiceData.detailItem || []).map(detail => {
+            const itemData = {
+              item_no: detail.item?.no || 'N/A',
+              item_name: detail.item?.name || '',
+              quantity: detail.quantity || 0,
+              unit_name: detail.itemUnit?.name || '',
+              unit_price: detail.unitPrice || 0,
+              discount: detail.itemCashDiscount || 0,
+              amount: detail.salesAmountBase || detail.totalPrice || 0,
+              warehouse_name: detail.warehouse?.name || null,
+              salesman_name: detail.salesmanName || detail.salesmanList?.[0]?.name || null,
+              item_category: detail.item?.itemCategoryId || null
+            };
+            
+            // Debug log untuk item pertama
+            if (invoiceData.detailItem.indexOf(detail) === 0) {
+              console.log('Sample item data:', {
+                warehouse: detail.warehouse,
+                salesmanName: detail.salesmanName,
+                salesmanList: detail.salesmanList,
+                itemCategory: detail.item?.itemCategoryId
+              });
+            }
+            
+            return itemData;
+          });
 
           await salesInvoiceModel.create(headerData, items);
           savedCount++;
         } catch (err) {
-          console.error(`Error saving invoice ${item.d?.number}:`, err.message);
+          console.error(`Error saving invoice ${item.d?.number || 'unknown'}:`, err.message);
           errorCount++;
         }
       }
+      
+      console.log(`Sync completed: ${savedCount} saved, ${errorCount} errors`);
 
       return reply.send({
         success: true,
