@@ -59,8 +59,9 @@ const salesInvoiceModel = {
         const itemQuery = `
           INSERT INTO sales_invoice_items (
             invoice_id, branch_id, item_no, item_name,
-            quantity, unit_name, unit_price, discount, amount
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            quantity, unit_name, unit_price, discount, amount,
+            warehouse_name, salesman_name, item_category
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         `;
 
         for (const item of items) {
@@ -73,7 +74,10 @@ const salesInvoiceModel = {
             item.unit_name,
             item.unit_price,
             item.discount || 0,
-            item.amount
+            item.amount,
+            item.warehouse_name || null,
+            item.salesman_name || null,
+            item.item_category || null
           ]);
         }
       }

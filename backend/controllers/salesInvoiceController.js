@@ -55,28 +55,31 @@ const salesInvoiceController = {
             branch_id: branchId,
             branch_name: branch.name,
             trans_date: convertDate(invoiceData.transDate),
-            customer_id: invoiceData.customerId || null,
-            customer_name: invoiceData.customerName || null,
-            salesman_id: invoiceData.salesmanId || null,
-            salesman_name: invoiceData.salesmanName || null,
-            warehouse_id: invoiceData.warehouseId || null,
-            warehouse_name: invoiceData.warehouseName || null,
-            subtotal: invoiceData.subtotal || 0,
-            discount: invoiceData.discount || 0,
-            tax: invoiceData.tax || 0,
-            total: invoiceData.total || 0,
+            customer_id: invoiceData.customer?.customerNo || null,
+            customer_name: invoiceData.customer?.name || null,
+            salesman_id: invoiceData.masterSalesmanId || null,
+            salesman_name: invoiceData.masterSalesmanName || null,
+            warehouse_id: null, // Warehouse ada di item level, bukan header
+            warehouse_name: null, // Warehouse ada di item level, bukan header
+            subtotal: invoiceData.subTotal || 0,
+            discount: invoiceData.cashDiscount || 0,
+            tax: invoiceData.tax1Amount || 0,
+            total: invoiceData.totalAmount || 0,
             raw_data: invoiceData
           };
 
           // Prepare items data
           const items = (invoiceData.detailItem || []).map(detail => ({
-            item_no: detail.item?.no || detail.itemNo || 'N/A',
-            item_name: detail.item?.name || detail.itemName || '',
+            item_no: detail.item?.no || 'N/A',
+            item_name: detail.item?.name || '',
             quantity: detail.quantity || 0,
-            unit_name: detail.itemUnit?.name || detail.unitName || '',
+            unit_name: detail.itemUnit?.name || '',
             unit_price: detail.unitPrice || 0,
-            discount: detail.discount || 0,
-            amount: detail.amount || 0
+            discount: detail.itemCashDiscount || 0,
+            amount: detail.salesAmountBase || detail.totalPrice || 0,
+            warehouse_name: detail.warehouse?.name || null,
+            salesman_name: detail.salesmanName || detail.salesmanList?.[0]?.name || null,
+            item_category: detail.item?.itemCategoryId || null
           }));
 
           await salesInvoiceModel.create(headerData, items);
