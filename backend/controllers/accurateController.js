@@ -2,6 +2,32 @@ const accurateService = require('../services/accurateService');
 const cacheModel = require('../models/cacheModel');
 
 const accurateController = {
+  // Get items
+  async getItems(request, reply) {
+    try {
+      const { db, branch, page = 1, q, limit = 100 } = request.query;
+      const result = await accurateService.fetchData('item/list', db, branch, { 
+        page,
+        q,
+        limit: Math.min(limit, 1000) // Limit max 1000 items per request
+      });
+      
+      return { 
+        success: true, 
+        data: result,
+        count: result?.length || 0
+      };
+    } catch (error) {
+      console.error('Error fetching items:', error);
+      reply.code(500);
+      return { 
+        success: false, 
+        error: error.message,
+        details: error.response?.data || null
+      };
+    }
+  },
+
   // Get all branches
   async getBranches(request, reply) {
     try {

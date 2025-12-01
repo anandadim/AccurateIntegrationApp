@@ -121,7 +121,17 @@ const accurateService = {
       // Construct URL - endpoint bisa seperti 'customer/list', 'item/list', dll
       const url = `/${endpoint}.do`;
       
-      const response = await client.get(url);
+      // For item endpoints, add fields parameter to get complete data
+      let params = {};
+      if (endpoint.includes('item')) {
+        // Request all necessary fields for complete item data
+        params = {
+          'sp.pageSize': 1000,
+          'fields': 'id,no,name,shortName,itemCategory.name,itemTypeName,itemType,barcode,unit1.name,unit1Name,itemBrand.name,brand.name,tax1Id,tax2Id,percentTaxable,taxIncluded,balance,detailWarehouseData'
+        };
+      }
+      
+      const response = await client.get(url, { params });
       return response.data;
     } catch (error) {
       console.error(`Error fetching ${endpoint}:`, error.response?.data || error.message);

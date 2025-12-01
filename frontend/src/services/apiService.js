@@ -311,6 +311,110 @@ const apiService = {
       console.error('Error fetching order summary:', error)
       throw error
     }
+  },
+// === ITEM SYNC METHODS ===
+
+  // Check item sync status
+  async checkItemSyncStatus(options = {}) {
+    try {
+      const { branchId, dateFrom, dateTo } = options
+      const params = { branchId }
+      
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo) params.dateTo = dateTo
+      
+      const response = await axios.get(`${API_BASE}/items/check-sync`, { params })
+      return response.data
+    } catch (error) {
+      console.error('Error checking item sync status:', error)
+      throw error
+    }
+  },
+
+  // Smart sync items
+  async syncItemsSmart(options = {}) {
+    try {
+      const { 
+        branchId, 
+        dateFrom, 
+        dateTo,
+        batchSize = 50,
+        batchDelay = 300,
+        mode = 'missing'
+      } = options
+      
+      const params = { 
+        branchId,
+        batchSize,
+        batchDelay,
+        mode
+      }
+      
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo) params.dateTo = dateTo
+      
+      const response = await axios.post(`${API_BASE}/items/sync-smart`, {}, { 
+        params,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      return response.data
+    } catch (error) {
+      console.error('Error in item smart sync:', error)
+      throw error
+    }
+  },
+
+  // === ITEM METHODS ===
+
+  // Get items list from Accurate API
+  async getItems(options = {}) {
+    try {
+      const { db, branch, page = 1, q, limit = 100 } = options
+      const params = { db, page, limit }
+      
+      if (branch) params.branch = branch
+      if (q) params.q = q
+      
+      const response = await axios.get(`${API_BASE}/item`, { params })
+      return response.data
+    } catch (error) {
+      console.error('Error fetching items:', error)
+      throw error
+    }
+  },
+
+  // Get item details by ID
+  async getItemDetails(itemId, options = {}) {
+    try {
+      const { warehouse } = options
+      const params = {}
+      
+      if (warehouse) params.warehouse = warehouse
+      
+      const response = await axios.get(`${API_BASE}/items/${itemId}`, { params })
+      return response.data
+    } catch (error) {
+      console.error('Error fetching item details:', error)
+      throw error
+    }
+  },
+
+  // Sync item from Accurate API
+  async syncItem(itemId, options = {}) {
+    try {
+      const { db, branch } = options
+      const params = { db }
+      
+      if (branch) params.branch = branch
+      
+      const response = await axios.post(`${API_BASE}/items/${itemId}/sync`, {}, { params })
+      return response.data
+    } catch (error) {
+      console.error('Error syncing item:', error)
+      throw error
+    }
   }
 }
 

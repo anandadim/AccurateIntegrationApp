@@ -16,6 +16,12 @@
         📦 Sales Order Sync
       </button>
       <button 
+        @click="currentView = 'item-sync'" 
+        :class="{ active: currentView === 'item-sync' }"
+      >
+        📦 Items Sync
+      </button>
+      <button 
         @click="currentView = 'api'" 
         :class="{ active: currentView === 'api' }"
       >
@@ -28,6 +34,9 @@
 
     <!-- Sales Order Sync View -->
     <SalesOrderSync v-if="currentView === 'order-sync'" :branches="branches" />
+
+    <!-- Items View -->
+    <ItemSync v-if="currentView === 'item-sync'" :branches="branches" />
 
     <!-- API Testing View -->
     <div v-if="currentView === 'api'">
@@ -146,13 +155,16 @@ import apiService from './services/apiService'
 import SalesInvoiceTable from './components/SalesInvoiceTable.vue'
 import SyncManager from './components/SyncManager.vue'
 import SalesOrderSync from './components/SalesOrderSync.vue'
+import ItemTable from './components/ItemTable.vue'
+import ItemSync from './components/ItemSync.vue'
 
 export default {
   name: 'App',
   components: {
     SalesInvoiceTable,
     SyncManager,
-    SalesOrderSync
+    SalesOrderSync,
+    ItemSync
   },
   setup() {
     const currentView = ref('invoice-sync')
