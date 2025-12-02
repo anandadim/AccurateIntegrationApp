@@ -1,6 +1,7 @@
 const accurateController = require('../controllers/accurateController');
 const salesInvoiceController = require('../controllers/salesInvoiceController');
 const salesOrderController = require('../controllers/salesOrderController');
+const itemController = require('../controllers/itemController');
 
 async function routes(fastify, options) {
   // Test endpoint
@@ -25,6 +26,22 @@ async function routes(fastify, options) {
 
   // Get list with all details
   fastify.get('/details/:endpoint', accurateController.getListWithDetails);
+
+  // === goods / item Endpoints (PostgreSQL) ===
+
+  // Get items
+  fastify.get('/item', accurateController.getItems);
+
+  // Get item details by ID
+  fastify.get('/items/:id', itemController.getItemDetails);
+
+  // Sync item data from Accurate
+  fastify.post('/items/:id/sync', itemController.syncItem);
+
+  // === Item Sync Endpoints ===
+  fastify.get('/items/check-sync', itemController.checkSyncStatus);
+  
+  fastify.post('/items/sync-smart', itemController.syncItemsSmart);
 
   // === Sales Invoice Endpoints (PostgreSQL) ===
   
