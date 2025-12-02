@@ -19,6 +19,7 @@ const itemModel = {
           tax1_rate,
           tax2_rate,
           tax_included,
+          suspended,
           updated_at,
           created_at
         FROM items
@@ -44,6 +45,7 @@ const itemModel = {
           i.warehouse as "warehouse",
           i.unit_name as "unit",
           i.brand as "brand",
+          i.suspended as "suspended",
           json_build_object(
             'isTaxIncluded', i.tax_included,
             'tax1Rate', i.tax1_rate,
@@ -109,6 +111,8 @@ const itemModel = {
       percentTaxable,
       taxIncluded,
       balance,
+      itemCategoryId,
+      suspended,
       detailWarehouseData
     } = itemData;
 
@@ -129,6 +133,7 @@ const itemModel = {
       tax2Id,
       percentTaxable,
       balance,
+      itemCategoryId,
       warehouseCount: detailWarehouseData?.length || 0
     });
 
@@ -136,9 +141,19 @@ const itemModel = {
     const itemNo = no || `ITEM-${id}`;                    // No / ID
     const itemName = name || shortName || `Unknown Item ${id}`; // Nama Barang
     const categoryName = itemCategory?.name || null;      // Kategori Barang  
+    const itemCategoryIdValue = itemCategoryId || itemCategory?.id || null; // ID Kategori
     const itemTypeNameFinal = itemTypeName || itemType || null; // Jenis Barang (try both fields)
     const unitName = unit1?.name || unit1Name || null;    // Satuan
     const brandName = itemBrand?.name || brand?.name || null; // Merk Barang
+    
+    // Extract warehouse name from detailWarehouseData
+    let warehouseName = null;
+    if (detailWarehouseData && Array.isArray(detailWarehouseData) && detailWarehouseData.length > 0) {
+      // Ambil warehouse default (defaultWarehouse: true) atau warehouse pertama
+      const defaultWarehouse = detailWarehouseData.find(wh => wh.defaultWarehouse === true);
+      warehouseName = defaultWarehouse ? defaultWarehouse.warehouseName : detailWarehouseData[0].warehouseName;
+    }
+    const warehouse = warehouseName || null; // Gudang
     
     // Extract tax information
     let tax1Rate = 0;
@@ -149,27 +164,27 @@ const itemModel = {
     
     const stockQuantity = balance || 0;                   // Stok
 
-    // Extract warehouse name from detailWarehouseData
-    let warehouseName = null;
-    if (detailWarehouseData && Array.isArray(detailWarehouseData) && detailWarehouseData.length > 0) {
-      // Take first warehouse to get variety of warehouses
-      warehouseName = detailWarehouseData[0].warehouseName;
-    }
+    // // Extract warehouse name from detailWarehouseData
+    // let warehouseName = null;
+    // if (detailWarehouseData && Array.isArray(detailWarehouseData) && detailWarehouseData.length > 0) {
+    //   // Take first warehouse to get variety of warehouses
+    //   warehouseName = detailWarehouseData[0].warehouseName;
+    // }
 
-    console.log('🔍 Warehouse name extracted:', { 
-      warehouseName, 
-      warehouseCount: detailWarehouseData?.length || 0,
-      allWarehouses: detailWarehouseData?.map(wh => wh.warehouseName) || []
-    });
+    // console.log('🔍 Warehouse name extracted:', { 
+    //   warehouseName, 
+    //   warehouseCount: detailWarehouseData?.length || 0,
+    //   allWarehouses: detailWarehouseData?.map(wh => wh.warehouseName) || []
+    // });
 
     const query = {
       text: `
         INSERT INTO items (
           item_id, item_no, name, category_name, type, 
           stock, warehouse, unit_name, brand, tax1_rate, tax2_rate, 
-          tax_included, raw_data, updated_at
+          tax_included, suspended, item_category_id, raw_data, updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, CURRENT_TIMESTAMP)
         ON CONFLICT (item_id) 
         DO UPDATE SET
           item_no = EXCLUDED.item_no,
@@ -183,6 +198,8 @@ const itemModel = {
           tax1_rate = EXCLUDED.tax1_rate,
           tax2_rate = EXCLUDED.tax2_rate,
           tax_included = EXCLUDED.tax_included,
+          item_category_id = EXCLUDED.item_category_id,
+          suspended = EXCLUDED.suspended,
           raw_data = EXCLUDED.raw_data,
           updated_at = CURRENT_TIMESTAMP
         RETURNING *
@@ -194,12 +211,14 @@ const itemModel = {
         categoryName,
         itemTypeNameFinal,  // Use the corrected field
         balance || 0,
-        warehouseName || '',
+        warehouse || '',
         unitName,
         brandName,
         tax1Rate,
         tax2Rate,
         taxIncluded || false,
+        suspended || false,
+        itemCategoryIdValue,
         itemData // Store full raw data
       ]
     };

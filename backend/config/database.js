@@ -184,6 +184,7 @@ const initialize = async () => {
         item_no VARCHAR(100) NOT NULL,
         name VARCHAR(255) NOT NULL,
         category_name VARCHAR(100),
+        item_category_id BIGINT,
         type VARCHAR(50),
         stock DECIMAL(15,2) DEFAULT 0,
         warehouse VARCHAR(100) NOT NULL DEFAULT '',
@@ -192,6 +193,7 @@ const initialize = async () => {
         tax_included BOOLEAN DEFAULT false,
         tax1_rate DECIMAL(10,2) DEFAULT 0,
         tax2_rate DECIMAL(10,2) DEFAULT 0,
+        suspended BOOLEAN DEFAULT false,
         raw_data JSONB,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -223,6 +225,30 @@ const initialize = async () => {
       if (stockColumnCheck.rows.length === 0) {
         await client.query(`ALTER TABLE items ADD COLUMN stock DECIMAL(15,2) DEFAULT 0`);
         console.log('✅ Added stock column to items table');
+      }
+
+      // Check if item_category_id column exists, if not add it
+      const itemCategoryIdColumnCheck = await client.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'items' AND column_name = 'item_category_id'
+      `);
+
+      if (itemCategoryIdColumnCheck.rows.length === 0) {
+        await client.query(`ALTER TABLE items ADD COLUMN item_category_id BIGINT`);
+        console.log('✅ Added item_category_id column to items table');
+      }
+
+      // Check if suspended column exists, if not add it
+      const suspendedColumnCheck = await client.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'items' AND column_name = 'suspended'
+      `);
+
+      if (suspendedColumnCheck.rows.length === 0) {
+        await client.query(`ALTER TABLE items ADD COLUMN suspended BOOLEAN DEFAULT false`);
+        console.log('✅ Added suspended column to items table');
       }
 
       // Check if warehouse column exists, if not add it
