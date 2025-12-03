@@ -16,6 +16,12 @@
         📦 Sales Order Sync
       </button>
       <button 
+        @click="currentView = 'customer-sync'" 
+        :class="{ active: currentView === 'customer-sync' }"
+      >
+        👥 Customer Sync
+      </button>
+      <button 
         @click="currentView = 'item-sync'" 
         :class="{ active: currentView === 'item-sync' }"
       >
@@ -34,6 +40,9 @@
 
     <!-- Sales Order Sync View -->
     <SalesOrderSync v-if="currentView === 'order-sync'" :branches="branches" />
+
+    <!-- Customer View -->
+    <CustomerSync v-if="currentView === 'customer-sync'" :branches="branches" />
 
     <!-- Items View -->
     <ItemSync v-if="currentView === 'item-sync'" :branches="branches" />
@@ -157,10 +166,12 @@ import SyncManager from './components/SyncManager.vue'
 import SalesOrderSync from './components/SalesOrderSync.vue'
 import ItemTable from './components/ItemTable.vue'
 import ItemSync from './components/ItemSync.vue'
+import CustomerSync from './components/CustomerSync.vue'
 
 export default {
   name: 'App',
   components: {
+    CustomerSync,
     SalesInvoiceTable,
     SyncManager,
     SalesOrderSync,
