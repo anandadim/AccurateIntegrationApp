@@ -366,7 +366,23 @@ const apiService = {
     }
   },
 
-  // === ITEM METHODS ===
+  // === CUSTOMER METHODS ===
+  async checkCustomerSyncStatus({ branchId }) {
+    const response = await axios.get(`${API_BASE}/customers/check-sync`, { params: { branchId } })
+    return response.data
+  },
+  async syncCustomersSmart({ branchId, mode = 'missing', batchSize = 50, batchDelay = 300 }) {
+    const params = { branchId, mode, batchSize, batchDelay }
+    const response = await axios.post(`${API_BASE}/customers/sync-smart`, {}, { params })
+    return response.data
+  },
+  async getCustomers({ branchId, limit = 100, offset = 0 }) {
+    const params = { branchId, limit, offset }
+    const response = await axios.get(`${API_BASE}/customers`, { params })
+    return response.data
+  },
+
+// === ITEM METHODS ===
 
   // Get items list from Accurate API
   async getItems(options = {}) {

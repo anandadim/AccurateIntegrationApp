@@ -2,6 +2,7 @@ const accurateController = require('../controllers/accurateController');
 const salesInvoiceController = require('../controllers/salesInvoiceController');
 const salesOrderController = require('../controllers/salesOrderController');
 const itemController = require('../controllers/itemController');
+const customerController = require('../controllers/customerController');
 
 async function routes(fastify, options) {
   // Test endpoint
@@ -42,6 +43,12 @@ async function routes(fastify, options) {
   fastify.get('/items/check-sync', itemController.checkSyncStatus);
   
   fastify.post('/items/sync-smart', itemController.syncItemsSmart);
+
+  // === Customer Endpoints ===
+  fastify.get('/customers/check-sync', customerController.checkSyncStatus);
+  fastify.post('/customers/sync-smart', customerController.syncSmart);
+  fastify.get('/customers', customerController.getCustomers);
+  fastify.get('/customers/:id', customerController.getCustomerById);
 
   // === Sales Invoice Endpoints (PostgreSQL) ===
   

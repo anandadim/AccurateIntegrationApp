@@ -266,6 +266,61 @@ const initialize = async () => {
       console.log('⚠️ Migration error (non-critical):', migrationError.message);
     }
 
+    // Create customers table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS customers (
+        id SERIAL PRIMARY KEY,
+        customer_id BIGINT NOT NULL,
+        customer_no VARCHAR(100),
+        name VARCHAR(255),
+        branch_id VARCHAR(50),
+        phone VARCHAR(50),
+        email VARCHAR(255),
+        address TEXT,
+        city VARCHAR(100),
+        country VARCHAR(100),
+        raw_data JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(customer_id, branch_id)
+      )
+    `);
+
+    await client.query('CREATE INDEX IF NOT EXISTS idx_customers_branch ON customers(branch_id)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name)');
+
+    // Add new columns if not exists
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='customers' AND column_name='discount_cat_id') THEN
+          ALTER TABLE customers ADD COLUMN discount_cat_id BIGINT;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='customers' AND column_name='category_name') THEN
+          ALTER TABLE customers ADD COLUMN category_name VARCHAR(255);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='customers' AND column_name='salesman_id') THEN
+          ALTER TABLE customers ADD COLUMN salesman_id BIGINT;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='customers' AND column_name='salesman_name') THEN
+          ALTER TABLE customers ADD COLUMN salesman_name VARCHAR(255);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='customers' AND column_name='created_date') THEN
+          ALTER TABLE customers ADD COLUMN created_date TIMESTAMP;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='customers' AND column_name='updated_date') THEN
+          ALTER TABLE customers ADD COLUMN updated_date TIMESTAMP;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='customers' AND column_name='suspended') THEN
+          ALTER TABLE customers ADD COLUMN suspended BOOLEAN DEFAULT FALSE;
+        END IF;
+        -- keep old column check
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='customers' AND column_name='category_id') THEN
+          ALTER TABLE customers ADD COLUMN category_id BIGINT;
+        END IF;
+      END $$;
+    `);
+
     // Create warehouse_stock table to track item stock per warehouse
     await client.query(`
       CREATE TABLE IF NOT EXISTS warehouse_stock (
