@@ -176,6 +176,102 @@ const initialize = async () => {
       ON sales_invoice_items(item_no)
     `);
 
+    // Create purchase_invoices table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS purchase_invoices (
+        id SERIAL PRIMARY KEY,
+        invoice_id BIGINT UNIQUE NOT NULL,
+        invoice_number VARCHAR(50) NOT NULL,
+        branch_id VARCHAR(50) NOT NULL,
+        branch_name VARCHAR(255),
+        trans_date DATE,
+        created_date DATE,
+        vendor_no VARCHAR(50),
+        vendor_name VARCHAR(255),
+        bill_number VARCHAR(50),
+        age INTEGER,
+        warehouse_id VARCHAR(50),
+        warehouse_name VARCHAR(255),
+        subtotal DECIMAL(15,2) DEFAULT 0,
+        discount DECIMAL(15,2) DEFAULT 0,
+        tax DECIMAL(15,2) DEFAULT 0,
+        total DECIMAL(15,2) DEFAULT 0,
+        status_name VARCHAR(50),
+        created_by VARCHAR(255),
+        opt_lock INTEGER DEFAULT 0,
+        raw_data JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create purchase_invoice_items table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS purchase_invoice_items (
+        id SERIAL PRIMARY KEY,
+        invoice_id BIGINT NOT NULL,
+        branch_id VARCHAR(50),
+        item_no VARCHAR(50),
+        item_name VARCHAR(255),
+        quantity DECIMAL(15,2) DEFAULT 0,
+        unit_name VARCHAR(50),
+        unit_price DECIMAL(15,2) DEFAULT 0,
+        discount DECIMAL(15,2) DEFAULT 0,
+        amount DECIMAL(15,2) DEFAULT 0,
+        warehouse_name VARCHAR(255),
+        item_category VARCHAR(100),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (invoice_id) REFERENCES purchase_invoices(invoice_id) ON DELETE CASCADE
+      )
+    `);
+
+    // Create indexes for purchase invoices
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_purchase_invoices_branch 
+      ON purchase_invoices(branch_id)
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_purchase_invoices_date 
+      ON purchase_invoices(trans_date)
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_purchase_invoice_items_invoice 
+      ON purchase_invoice_items(invoice_id)
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_purchase_invoice_items_item 
+      ON purchase_invoice_items(item_no)
+    `);
+
+    // Create trigger for updated_at
+    await client.query(`
+      CREATE OR REPLACE FUNCTION update_purchase_invoices_updated_at()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        NEW.updated_at = CURRENT_TIMESTAMP;
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_trigger 
+          WHERE tgname = 'trigger_purchase_invoices_updated_at'
+        ) THEN
+          CREATE TRIGGER trigger_purchase_invoices_updated_at
+          BEFORE UPDATE ON purchase_invoices
+          FOR EACH ROW
+          EXECUTE FUNCTION update_purchase_invoices_updated_at();
+        END IF;
+      END $$;
+    `);
+
     // Create items table
     await client.query(`
       CREATE TABLE IF NOT EXISTS items (

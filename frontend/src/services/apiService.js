@@ -431,6 +431,118 @@ const apiService = {
       console.error('Error syncing item:', error)
       throw error
     }
+  },
+
+  // === PURCHASE INVOICE METHODS ===
+
+  // Check purchase invoice sync status
+  async checkPurchaseInvoiceSyncStatus(options = {}) {
+    try {
+      const { branchId, dateFrom, dateTo, dateFilterType = 'createdDate' } = options
+      const params = { branchId, dateFilterType }
+      
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo) params.dateTo = dateTo
+      
+      const response = await axios.get(`${API_BASE}/purchase-invoices/check-sync`, { params })
+      return response.data
+    } catch (error) {
+      console.error('Error checking purchase invoice sync status:', error)
+      throw error
+    }
+  },
+
+  // Count purchase invoices (dry-run)
+  async countPurchaseInvoices(options = {}) {
+    try {
+      const { branchId, dateFrom, dateTo, dateFilterType = 'createdDate' } = options
+      const params = { branchId, dateFilterType }
+      
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo) params.dateTo = dateTo
+      
+      const response = await axios.get(`${API_BASE}/purchase-invoices/count`, { params })
+      return response.data
+    } catch (error) {
+      console.error('Error counting purchase invoices:', error)
+      throw error
+    }
+  },
+
+  // Sync purchase invoices
+  async syncPurchaseInvoices(options = {}) {
+    try {
+      const { 
+        branchId, 
+        dateFrom, 
+        dateTo, 
+        dateFilterType = 'createdDate',
+        batchSize = 50,
+        batchDelay = 300,
+        streamInsert = true,
+        maxItems
+      } = options
+      
+      const params = { 
+        branchId, 
+        dateFilterType,
+        batchSize,
+        batchDelay,
+        streamInsert: streamInsert ? 'true' : 'false'
+      }
+      
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo) params.dateTo = dateTo
+      if (maxItems) params.maxItems = maxItems
+      
+      const response = await axios.post(`${API_BASE}/purchase-invoices/sync`, null, { 
+        params,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      return response.data
+    } catch (error) {
+      console.error('Error syncing purchase invoices:', error)
+      throw error
+    }
+  },
+
+  // Get synced purchase invoices from database
+  async getPurchaseInvoices(options = {}) {
+    try {
+      const { branchId, dateFrom, dateTo, vendorNo, limit = 100, offset = 0 } = options
+      const params = { limit, offset }
+      
+      if (branchId) params.branchId = branchId
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo) params.dateTo = dateTo
+      if (vendorNo) params.vendorNo = vendorNo
+      
+      const response = await axios.get(`${API_BASE}/purchase-invoices`, { params })
+      return response.data
+    } catch (error) {
+      console.error('Error fetching purchase invoices:', error)
+      throw error
+    }
+  },
+
+  // Get purchase invoice summary
+  async getPurchaseInvoiceSummary(options = {}) {
+    try {
+      const { branchId, dateFrom, dateTo } = options
+      const params = {}
+      
+      if (branchId) params.branchId = branchId
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo) params.dateTo = dateTo
+      
+      const response = await axios.get(`${API_BASE}/purchase-invoices/summary/stats`, { params })
+      return response.data
+    } catch (error) {
+      console.error('Error fetching purchase invoice summary:', error)
+      throw error
+    }
   }
 }
 
