@@ -1,6 +1,7 @@
 const accurateController = require('../controllers/accurateController');
 const salesInvoiceController = require('../controllers/salesInvoiceController');
 const salesOrderController = require('../controllers/salesOrderController');
+const purchaseInvoiceController = require('../controllers/purchaseInvoiceController');
 const itemController = require('../controllers/itemController');
 const customerController = require('../controllers/customerController');
 
@@ -89,6 +90,26 @@ async function routes(fastify, options) {
   
   // Get summary statistics
   fastify.get('/sales-orders/summary/stats', salesOrderController.getSummary);
+
+  // === Purchase Invoice Endpoints (PostgreSQL) ===
+  
+  // Check sync status (compare API vs DB)
+  fastify.get('/purchase-invoices/check-sync', purchaseInvoiceController.checkSyncStatus);
+  
+  // Count invoices without fetching (dry-run)
+  fastify.get('/purchase-invoices/count', purchaseInvoiceController.countInvoices);
+  
+  // Sync purchase invoices from Accurate API to PostgreSQL
+  fastify.post('/purchase-invoices/sync', purchaseInvoiceController.syncFromAccurate);
+  
+  // Get purchase invoices from database
+  fastify.get('/purchase-invoices', purchaseInvoiceController.getInvoices);
+  
+  // Get invoice detail by ID
+  fastify.get('/purchase-invoices/:id', purchaseInvoiceController.getInvoiceById);
+  
+  // Get summary statistics
+  fastify.get('/purchase-invoices/summary/stats', purchaseInvoiceController.getSummary);
 }
 
 module.exports = routes;

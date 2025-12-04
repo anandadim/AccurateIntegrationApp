@@ -10,6 +10,12 @@
         📄 Sales Invoice Sync
       </button>
       <button 
+        @click="currentView = 'purchase-invoice-sync'" 
+        :class="{ active: currentView === 'purchase-invoice-sync' }"
+      >
+        📦 Purchase Invoice Sync
+      </button>
+      <button 
         @click="currentView = 'order-sync'" 
         :class="{ active: currentView === 'order-sync' }"
       >
@@ -37,6 +43,9 @@
 
     <!-- Sales Invoice Sync View -->
     <SyncManager v-if="currentView === 'invoice-sync'" :branches="branches" />
+
+    <!-- Purchase Invoice Sync View -->
+    <PurchaseInvoiceSync v-if="currentView === 'purchase-invoice-sync'" :branches="branches" />
 
     <!-- Sales Order Sync View -->
     <SalesOrderSync v-if="currentView === 'order-sync'" :branches="branches" />
@@ -162,7 +171,9 @@
 import { ref, computed, onMounted } from 'vue'
 import apiService from './services/apiService'
 import SalesInvoiceTable from './components/SalesInvoiceTable.vue'
+import PurchaseInvoiceTable from './components/PurchaseInvoiceTable.vue'
 import SyncManager from './components/SyncManager.vue'
+import PurchaseInvoiceSync from './components/PurchaseInvoiceSync.vue'
 import SalesOrderSync from './components/SalesOrderSync.vue'
 import ItemTable from './components/ItemTable.vue'
 import ItemSync from './components/ItemSync.vue'
@@ -173,7 +184,9 @@ export default {
   components: {
     CustomerSync,
     SalesInvoiceTable,
+    PurchaseInvoiceTable,
     SyncManager,
+    PurchaseInvoiceSync,
     SalesOrderSync,
     ItemSync
   },
