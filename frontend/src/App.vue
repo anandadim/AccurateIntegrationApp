@@ -16,8 +16,8 @@
         📦 Purchase Invoice Sync
       </button>
       <button 
-        @click="currentView = 'receipt-sync'" 
-        :class="{ active: currentView === 'receipt-sync' }">💵 Sales Receipt Sync</button>
+        @click="currentView = 'return-sync'" 
+        :class="{ active: currentView === 'return-sync' }">↩️ Sales Return Sync</button>
       <button 
         @click="currentView = 'order-sync'" 
         :class="{ active: currentView === 'order-sync' }"
@@ -62,8 +62,10 @@
     <!-- Purchase Invoice Sync View -->
     <PurchaseInvoiceSync v-if="currentView === 'purchase-invoice-sync'" :branches="branches" />
     <!-- Sales Receipt Sync View -->
-    <SalesReceiptSync v-if="currentView === 'receipt-sync'" :branches="branches" />
+    <SalesReturnSync v-if="currentView === 'return-sync'" :branches="branches" />
 
+    
+    
     <!-- Sales Order Sync View -->
     <SalesOrderSync v-if="currentView === 'order-sync'" :branches="branches" />
 
@@ -202,6 +204,7 @@ import SalesOrderSync from './components/SalesOrderSync.vue'
 import ItemTable from './components/ItemTable.vue'
 import ItemSync from './components/ItemSync.vue'
 import CustomerSync from './components/CustomerSync.vue'
+import SalesReturnSync from './components/SalesReturnSync.vue'
 // import GoodsSync from './components/GoodsSync.vue'
 // import GoodsTable from './components/GoodsTable.vue'
 
@@ -216,6 +219,7 @@ export default {
     SalesReceiptSync,
     SalesOrderSync,
     ItemSync,
+    SalesReturnSync,
     // GoodsSync,
     // GoodsTable
   },
