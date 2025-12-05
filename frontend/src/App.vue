@@ -16,6 +16,9 @@
         📦 Purchase Invoice Sync
       </button>
       <button 
+        @click="currentView = 'receipt-sync'" 
+        :class="{ active: currentView === 'receipt-sync' }">💵 Sales Receipt Sync</button>
+      <button 
         @click="currentView = 'order-sync'" 
         :class="{ active: currentView === 'order-sync' }"
       >
@@ -33,6 +36,18 @@
       >
         📦 Items Sync
       </button>
+      <!-- <button 
+        @click="currentView = 'goods-sync'" 
+        :class="{ active: currentView === 'goods-sync' }"
+      >
+        📦 Goods Sync
+      </button> -->
+      <!-- <button 
+        @click="currentView = 'goods-table'" 
+        :class="{ active: currentView === 'goods-table' }"
+      >
+        📋 Goods List
+      </button> -->
       <button 
         @click="currentView = 'api'" 
         :class="{ active: currentView === 'api' }"
@@ -46,6 +61,8 @@
 
     <!-- Purchase Invoice Sync View -->
     <PurchaseInvoiceSync v-if="currentView === 'purchase-invoice-sync'" :branches="branches" />
+    <!-- Sales Receipt Sync View -->
+    <SalesReceiptSync v-if="currentView === 'receipt-sync'" :branches="branches" />
 
     <!-- Sales Order Sync View -->
     <SalesOrderSync v-if="currentView === 'order-sync'" :branches="branches" />
@@ -55,6 +72,12 @@
 
     <!-- Items View -->
     <ItemSync v-if="currentView === 'item-sync'" :branches="branches" />
+
+    <!-- Goods Sync View
+    <GoodsSync v-if="currentView === 'goods-sync'" />
+
+    <!-- Goods Table View -->
+    <!-- <GoodsTable v-if="currentView === 'goods-table'" /> --> -->
 
     <!-- API Testing View -->
     <div v-if="currentView === 'api'">
@@ -174,10 +197,13 @@ import SalesInvoiceTable from './components/SalesInvoiceTable.vue'
 import PurchaseInvoiceTable from './components/PurchaseInvoiceTable.vue'
 import SyncManager from './components/SyncManager.vue'
 import PurchaseInvoiceSync from './components/PurchaseInvoiceSync.vue'
+import SalesReceiptSync from './components/SalesReceiptSync.vue'
 import SalesOrderSync from './components/SalesOrderSync.vue'
 import ItemTable from './components/ItemTable.vue'
 import ItemSync from './components/ItemSync.vue'
 import CustomerSync from './components/CustomerSync.vue'
+// import GoodsSync from './components/GoodsSync.vue'
+// import GoodsTable from './components/GoodsTable.vue'
 
 export default {
   name: 'App',
@@ -187,8 +213,11 @@ export default {
     PurchaseInvoiceTable,
     SyncManager,
     PurchaseInvoiceSync,
+    SalesReceiptSync,
     SalesOrderSync,
-    ItemSync
+    ItemSync,
+    // GoodsSync,
+    // GoodsTable
   },
   setup() {
     const currentView = ref('invoice-sync')
