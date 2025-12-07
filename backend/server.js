@@ -8,6 +8,17 @@ fastify.register(cors, {
   origin: true
 });
 
+// Add content type parser for JSON
+fastify.addContentTypeParser('application/json', { parseAs: 'string' }, function (req, body, done) {
+  try {
+    const json = JSON.parse(body);
+    done(null, json);
+  } catch (err) {
+    err.statusCode = 400;
+    done(err, undefined);
+  }
+});
+
 // Register routes
 fastify.register(require('./routes/api'), { prefix: '/api' });
 
