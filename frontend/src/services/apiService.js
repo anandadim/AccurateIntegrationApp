@@ -106,6 +106,48 @@ const apiService = {
   },
 
   // === SALES RECEIPT METHODS ===
+
+  // === SALES RETURN METHODS ===
+  // Check sales return sync status
+  async checkReturnSyncStatus(options = {}) {
+    const { branchId, dateFrom, dateTo, dateFilterType = 'createdDate' } = options
+    const params = { branchId, dateFilterType }
+    if(dateFrom) params.dateFrom = dateFrom
+    if(dateTo) params.dateTo = dateTo
+    const res = await axios.get(`${API_BASE}/sales-returns/check-sync`, { params })
+    return res.data
+  },
+  // Sync sales returns
+  async syncReturns(options = {}) {
+    const { branchId, dateFrom, dateTo, dateFilterType='createdDate', batchSize=50, batchDelay=300, maxItems } = options
+    const params = { branchId, dateFilterType, batchSize, batchDelay }
+    if(dateFrom) params.dateFrom = dateFrom
+    if(dateTo) params.dateTo = dateTo
+    if(maxItems) params.maxItems = maxItems
+    const res = await axios.post(`${API_BASE}/sales-returns/sync`, params)
+    return res.data
+  },
+  // Get returns list
+  async getReturns(options = {}) {
+    const { branchId, dateFrom, dateTo, customerId, limit=100, offset=0 } = options
+    const params = { limit, offset }
+    if(branchId) params.branchId = branchId
+    if(dateFrom) params.dateFrom = dateFrom
+    if(dateTo) params.dateTo = dateTo
+    if(customerId) params.customerId = customerId
+    const res = await axios.get(`${API_BASE}/sales-returns`, { params })
+    return res.data
+  },
+  // Get return summary
+  async getReturnSummary(options = {}) {
+    const { branchId, dateFrom, dateTo } = options
+    const params = {}
+    if(branchId) params.branchId = branchId
+    if(dateFrom) params.dateFrom = dateFrom
+    if(dateTo) params.dateTo = dateTo
+    const res = await axios.get(`${API_BASE}/sales-returns/summary/stats`, { params })
+    return res.data
+  },
   // Check sales receipt sync status
   async checkReceiptSyncStatus(options = {}) {
     const { branchId, dateFrom, dateTo, dateFilterType = 'createdDate' } = options
