@@ -24,8 +24,8 @@
       <div class="form-group"><label>Sampai:</label><input type="date" v-model="dateTo" class="date-input" /></div>
       <div class="form-group"><label>Filter Type:</label>
         <select v-model="dateFilterType" class="select-input">
+          <option value="transDate">Transaction Date (transDate)</option>
           <option value="createdDate">Created Date</option>
-          <option value="transDate">Transaction Date</option>
         </select>
       </div>
       <button @click="checkSync" :disabled="checking" class="btn btn-primary">
@@ -78,7 +78,7 @@ export default {
     const today=new Date().toISOString().split('T')[0]
     const dateFrom=ref(today)
     const dateTo=ref(today)
-    const dateFilterType=ref('createdDate')
+    const dateFilterType=ref('transDate')
     const batchSize=ref(20)
     const batchDelay=ref(500)
     const checking=ref(false)

@@ -110,7 +110,7 @@ const apiService = {
   // === SALES RETURN METHODS ===
   // Check sales return sync status
   async checkReturnSyncStatus(options = {}) {
-    const { branchId, dateFrom, dateTo, dateFilterType = 'createdDate' } = options
+    const { branchId, dateFrom, dateTo, dateFilterType = 'transDate' } = options
     const params = { branchId, dateFilterType }
     if(dateFrom) params.dateFrom = dateFrom
     if(dateTo) params.dateTo = dateTo
@@ -119,7 +119,7 @@ const apiService = {
   },
   // Sync sales returns
   async syncReturns(options = {}) {
-    const { branchId, dateFrom, dateTo, dateFilterType='createdDate', batchSize=50, batchDelay=300, maxItems } = options
+    const { branchId, dateFrom, dateTo, dateFilterType='transDate', batchSize=50, batchDelay=300, maxItems } = options
     const params = { branchId, dateFilterType, batchSize, batchDelay }
     if(dateFrom) params.dateFrom = dateFrom
     if(dateTo) params.dateTo = dateTo
@@ -615,18 +615,17 @@ async getGoodsSummary(filters = {}) {
     }
   },
 
-  // Sync purchase invoices
-  async syncPurchaseInvoices(options = {}) {
+  // Smart sync: Only sync new + updated purchase invoices
+  async syncPurchaseInvoicesSmart(options = {}) {
     try {
       const { 
         branchId, 
         dateFrom, 
         dateTo, 
-        dateFilterType = 'createdDate',
+        dateFilterType = 'transDate',
         batchSize = 50,
         batchDelay = 300,
-        streamInsert = true,
-        maxItems
+        mode = 'missing'
       } = options
       
       const params = { 
@@ -634,12 +633,46 @@ async getGoodsSummary(filters = {}) {
         dateFilterType,
         batchSize,
         batchDelay,
-        streamInsert: streamInsert ? 'true' : 'false'
+        mode
       }
       
       if (dateFrom) params.dateFrom = dateFrom
       if (dateTo) params.dateTo = dateTo
-      if (maxItems) params.maxItems = maxItems
+      
+      const response = await axios.post(`${API_BASE}/purchase-invoices/sync-smart`, null, { 
+        params,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      return response.data
+    } catch (error) {
+      console.error('Error syncing purchase invoices (smart):', error)
+      throw error
+    }
+  },
+
+  // Sync all purchase invoices (full sync)
+  async syncPurchaseInvoices(options = {}) {
+    try {
+      const { 
+        branchId, 
+        dateFrom, 
+        dateTo, 
+        dateFilterType = 'transDate',
+        batchSize = 50,
+        batchDelay = 300
+      } = options
+      
+      const params = { 
+        branchId, 
+        dateFilterType,
+        batchSize,
+        batchDelay
+      }
+      
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo) params.dateTo = dateTo
       
       const response = await axios.post(`${API_BASE}/purchase-invoices/sync`, null, { 
         params,
@@ -689,6 +722,49 @@ async getGoodsSummary(filters = {}) {
       console.error('Error fetching purchase invoice summary:', error)
       throw error
     }
+  }
+,
+
+  // === PURCHASE ORDER METHODS ===
+  // Check sync status for purchase orders
+  async checkPurchaseOrderSyncStatus(options = {}) {
+    const { branchId, dateFrom, dateTo, dateFilterType = 'createdDate' } = options
+    const params = { branchId, dateFilterType }
+    if(dateFrom) params.dateFrom = dateFrom
+    if(dateTo) params.dateTo = dateTo
+    const res = await axios.get(`${API_BASE}/purchase-orders/check-sync`, { params })
+    return res.data
+  },
+  // Sync purchase orders (non-stream)
+  async syncPurchaseOrders(options = {}) {
+    const { branchId, dateFrom, dateTo, dateFilterType='createdDate', batchSize=50, batchDelay=300, maxItems } = options
+    const params = { branchId, dateFilterType, batchSize, batchDelay }
+    if(dateFrom) params.dateFrom = dateFrom
+    if(dateTo) params.dateTo = dateTo
+    if(maxItems) params.maxItems = maxItems
+    const res = await axios.post(`${API_BASE}/purchase-orders/sync`, params)
+    return res.data
+  },
+  // Get purchase orders list from DB
+  async getPurchaseOrders(options = {}) {
+    const { branchId, dateFrom, dateTo, vendorNo, limit=100, offset=0 } = options
+    const params = { limit, offset }
+    if(branchId) params.branchId = branchId
+    if(dateFrom) params.dateFrom = dateFrom
+    if(dateTo) params.dateTo = dateTo
+    if(vendorNo) params.vendorNo = vendorNo
+    const res = await axios.get(`${API_BASE}/purchase-orders`, { params })
+    return res.data
+  },
+  // Get purchase order summary
+  async getPurchaseOrderSummary(options = {}) {
+    const { branchId, dateFrom, dateTo } = options
+    const params = {}
+    if(branchId) params.branchId = branchId
+    if(dateFrom) params.dateFrom = dateFrom
+    if(dateTo) params.dateTo = dateTo
+    const res = await axios.get(`${API_BASE}/purchase-orders/summary/stats`, { params })
+    return res.data
   }
 }
 

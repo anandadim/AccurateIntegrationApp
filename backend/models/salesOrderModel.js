@@ -73,7 +73,7 @@ const salesOrderModel = {
       const orderId = headerResult.rows[0].order_id;
 
       // Delete existing items
-      await client.query('DELETE FROM sales_order_items WHERE order_id = $1', [orderId]);
+      //await client.query('DELETE FROM sales_order_items WHERE order_id = $1', [orderId]);
 
       // Insert new items
       if (items && items.length > 0) {

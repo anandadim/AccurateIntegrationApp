@@ -19,9 +19,9 @@ const salesReturnModel = {
         ) VALUES (
           $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21
         )
-        ON CONFLICT (sales_return_id)
+        ON CONFLICT (return_number, branch_id)
         DO UPDATE SET
-          return_number       = EXCLUDED.return_number,
+          sales_return_id     = EXCLUDED.sales_return_id,
           invoice_id          = EXCLUDED.invoice_id,
           invoice_number      = EXCLUDED.invoice_number,
           return_type         = EXCLUDED.return_type,
@@ -68,7 +68,7 @@ const salesReturnModel = {
       const dbHeaderId = headerRes.rows[0].id;
 
       // Remove existing items
-      await client.query('DELETE FROM sales_return_items WHERE sales_return_id = $1', [returnData.sales_return_id]);
+      //await client.query('DELETE FROM sales_return_items WHERE sales_return_id = $1', [returnData.sales_return_id]);
 
       // Insert items if provided
       if (items && items.length > 0) {
@@ -84,7 +84,7 @@ const salesReturnModel = {
           )`;
 
         for (const item of items) {
-          await client.query(itemQuery, [
+         const itemValues = [
             returnData.sales_return_id,
             returnData.branch_id,
             item.item_id,
@@ -102,7 +102,10 @@ const salesReturnModel = {
             item.invoice_detail_quantity,
             item.sales_order_id,
             item.return_detail_status
-          ]);
+          ];
+          
+          await client.query(itemQuery, itemValues);
+        
         }
       }
 
@@ -121,15 +124,28 @@ const salesReturnModel = {
     const q = `
       SELECT sales_return_id, return_number, raw_data->>'optLock' AS opt_lock, updated_at
       FROM sales_returns
-      WHERE branch_id = $1 AND trans_date BETWEEN $2 AND $3
-      ORDER BY sales_return_id`;
+      WHERE branch_id = $1
+        AND trans_date >= $2
+        AND trans_date <= $3
+      ORDER BY trans_date DESC;
+    `;
     const res = await db.query(q, [branchId, dateFrom, dateTo]);
     return res.rows;
   },
 
   // List returns with filters
   async list(filters = {}) {
-    let q = 'SELECT * FROM sales_returns WHERE 1=1';
+    let q = `SELECT 
+        sr.id, sr.sales_return_id, sr.return_number,
+        sr.branch_id, sr.branch_name,
+        sr.trans_date, sr.delivery_date,
+        sr.customer_id, sr.customer_name,
+        sr.salesman_id, sr.salesman_name,
+        sr.subtotal, sr.discount, sr.tax, sr.total,
+        sr.order_status,
+        sr.created_at, sr.updated_at
+      FROM sales_returns sr
+      WHERE 1=1`;
     const params = [];
     let i = 1;
 
@@ -167,8 +183,8 @@ const salesReturnModel = {
 
   // Get by internal ID with items
   async getById(id) {
-    const headerQuery = 'SELECT * FROM sales_returns WHERE id = $1';
-    const itemsQuery = 'SELECT * FROM sales_return_items WHERE sales_return_id = (SELECT sales_return_id FROM sales_returns WHERE id = $1) ORDER BY id';
+    const headerQuery = `SELECT * FROM sales_returns WHERE id = $1`;
+    const itemsQuery = `SELECT * FROM sales_return_items WHERE sales_return_id = (SELECT sales_return_id FROM sales_returns WHERE id = $1) ORDER BY id`;
 
     const headerRes = await db.query(headerQuery, [id]);
     const itemsRes = await db.query(itemsQuery, [id]);
@@ -183,13 +199,12 @@ const salesReturnModel = {
 
   // Summary statistics
   async getSummary(filters = {}) {
-    let q = `
-      SELECT branch_id, branch_name,
-        COUNT(*) AS return_count,
-        SUM(return_amount) AS total_return,
-        AVG(return_amount) AS avg_return,
-        MIN(trans_date) AS first_date,
-        MAX(trans_date) AS last_date
+    let q = `SELECT 
+        COUNT(*) as total_returns,
+        SUM(return_amount) as total_amount,
+        AVG(return_amount) as avg_amount,
+        MIN(trans_date) as earliest_date,
+        MAX(trans_date) as latest_date
       FROM sales_returns WHERE 1=1`;
     const params = [];
     let i = 1;
@@ -207,9 +222,8 @@ const salesReturnModel = {
       params.push(filters.date_to);
     }
 
-    q += ' GROUP BY branch_id, branch_name ORDER BY branch_id';
     const res = await db.query(q, params);
-    return res.rows;
+    return res.rows[0];
   }
 };
 

@@ -180,7 +180,7 @@ const initialize = async () => {
     await client.query(`
       CREATE TABLE IF NOT EXISTS purchase_invoices (
         id SERIAL PRIMARY KEY,
-        invoice_id BIGINT UNIQUE NOT NULL,
+        invoice_id BIGINT NOT NULL,
         invoice_number VARCHAR(50) NOT NULL,
         branch_id VARCHAR(50) NOT NULL,
         branch_name VARCHAR(255),
@@ -201,7 +201,8 @@ const initialize = async () => {
         opt_lock INTEGER DEFAULT 0,
         raw_data JSONB,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (invoice_id, branch_id)
       )
     `);
 
@@ -210,7 +211,9 @@ const initialize = async () => {
       CREATE TABLE IF NOT EXISTS purchase_invoice_items (
         id SERIAL PRIMARY KEY,
         invoice_id BIGINT NOT NULL,
+        detail_id BIGINT,
         branch_id VARCHAR(50),
+        invoice_number VARCHAR(50),
         item_no VARCHAR(50),
         item_name VARCHAR(255),
         quantity DECIMAL(15,2) DEFAULT 0,
@@ -221,7 +224,8 @@ const initialize = async () => {
         warehouse_name VARCHAR(255),
         item_category VARCHAR(100),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (invoice_id) REFERENCES purchase_invoices(invoice_id) ON DELETE CASCADE
+        UNIQUE (invoice_id, detail_id, branch_id),
+        FOREIGN KEY (invoice_id, branch_id) REFERENCES purchase_invoices(invoice_id, branch_id) ON DELETE CASCADE
       )
     `);
 
@@ -245,6 +249,37 @@ const initialize = async () => {
       CREATE INDEX IF NOT EXISTS idx_purchase_invoice_items_item 
       ON purchase_invoice_items(item_no)
     `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_purchase_invoice_items_detail_id 
+      ON purchase_invoice_items(detail_id)
+    `);
+
+    // // Ensure proper constraints for upsert
+    // await client.query(`
+    //   DO $$
+    //   BEGIN
+    //     -- Fix purchase_invoices constraint
+    //     IF NOT EXISTS (
+    //       SELECT 1 FROM pg_constraint 
+    //       WHERE conname = 'purchase_invoices_invoice_id_branch_id_key'
+    //     ) THEN
+    //       ALTER TABLE purchase_invoices 
+    //       ADD CONSTRAINT purchase_invoices_invoice_id_branch_id_key 
+    //       UNIQUE (invoice_id, branch_id);
+    //     END IF;
+        
+    //     -- Fix purchase_invoice_items constraint
+    //     IF NOT EXISTS (
+    //       SELECT 1 FROM pg_constraint 
+    //       WHERE conname = 'purchase_invoice_items_invoice_id_detail_id_key'
+    //     ) THEN
+    //       ALTER TABLE purchase_invoice_items 
+    //       ADD CONSTRAINT purchase_invoice_items_invoice_id_detail_id_key 
+    //       UNIQUE (invoice_id, detail_id);
+    //     END IF;
+    //   END $$;
+    // `);
 
     // Create trigger for updated_at
     await client.query(`

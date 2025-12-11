@@ -46,7 +46,7 @@
             <template v-if="items && items.length">
               <tr v-for="ret in items" :key="ret.sales_return_id" class="hover:bg-gray-50">
                 <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm text-gray-900">{{ formatDate(ret.trans_date||ret.raw_data?.transDateView) }}</div>
+                  <div class="text-sm text-gray-900">{{ formatDate(ret.trans_date||ret.raw_data?.transDate) }}</div>
                   <div class="text-sm text-blue-600 font-medium">#{{ ret.return_number }}</div>
                 </td>
                 <td class="px-6 py-4">

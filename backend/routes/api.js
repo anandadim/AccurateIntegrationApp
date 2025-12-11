@@ -5,6 +5,7 @@ const purchaseInvoiceController = require('../controllers/purchaseInvoiceControl
 const itemController = require('../controllers/itemController');
 const customerController = require('../controllers/customerController');
 const salesReceiptController = require('../controllers/salesReceiptController');
+const purchaseOrderController = require('../controllers/purchaseOrderController');
 const salesReturnController = require('../controllers/salesReturnController');
 
 
@@ -127,10 +128,29 @@ async function routes(fastify, options) {
   // Get summary statistics
   fastify.get('/sales-returns/summary/stats', salesReturnController.getSummary);
 
+  // === Purchase Order Endpoints (PostgreSQL) ===
+  // Check sync status (compare API vs DB)
+  fastify.get('/purchase-orders/check-sync', purchaseOrderController.checkSyncStatus);
+
+  // Sync purchase orders from Accurate API to PostgreSQL
+  fastify.post('/purchase-orders/sync', purchaseOrderController.syncFromAccurate);
+
+  // Get purchase orders from database
+  fastify.get('/purchase-orders', purchaseOrderController.getOrders);
+
+  // Get purchase order detail by ID
+  fastify.get('/purchase-orders/:id', purchaseOrderController.getOrderById);
+
+  // Get summary statistics
+  fastify.get('/purchase-orders/summary/stats', purchaseOrderController.getSummary);
+
   // === Purchase Invoice Endpoints (PostgreSQL) ===
   
   // Check sync status (compare API vs DB)
   fastify.get('/purchase-invoices/check-sync', purchaseInvoiceController.checkSyncStatus);
+  
+  // Smart sync: Only sync new + updated invoices
+  fastify.post('/purchase-invoices/sync-smart', purchaseInvoiceController.syncSmart);
   
   // Count invoices without fetching (dry-run)
   fastify.get('/purchase-invoices/count', purchaseInvoiceController.countInvoices);

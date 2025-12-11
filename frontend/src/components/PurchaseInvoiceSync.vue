@@ -350,14 +350,14 @@ export default {
           }
         }, 1000)
 
-        const result = await apiService.syncPurchaseInvoices({
+        const result = await apiService.syncPurchaseInvoicesSmart({
           branchId: selectedBranch.value,
-          dateFrom: dateFrom.value,
-          dateTo: dateTo.value,
-          dateFilterType: dateFilterType.value,
+          dateFrom: checkResult.value?.dateRange?.from || dateFrom.value,
+          dateTo: checkResult.value?.dateRange?.to || dateTo.value,
+          dateFilterType: checkResult.value?.dateRange?.filterType || dateFilterType.value,
           batchSize: batchSize.value,
           batchDelay: batchDelay.value,
-          streamInsert: streamInsert.value
+          mode: 'missing'
         })
 
         console.log('✅ Sync result:', result)
@@ -369,7 +369,8 @@ export default {
         if (result.success) {
           syncResult.value = result
           console.log('🔄 Refreshing check result...')
-          // Refresh check result after sync
+          // Wait a bit for database to commit
+          await new Promise(resolve => setTimeout(resolve, 1000))
           await checkSync()
         } else {
           console.error('❌ Sync failed:', result.error)
@@ -398,14 +399,14 @@ export default {
       error.value = ''
 
       try {
-        const result = await apiService.syncPurchaseInvoices({
+        const result = await apiService.syncPurchaseInvoicesSmart({
           branchId: selectedBranch.value,
           dateFrom: month.from,
           dateTo: month.to,
           dateFilterType: dateFilterType.value,
           batchSize: batchSize.value,
           batchDelay: batchDelay.value,
-          streamInsert: streamInsert.value
+          mode: 'missing'
         })
 
         if (result.success) {

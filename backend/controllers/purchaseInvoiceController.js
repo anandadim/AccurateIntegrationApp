@@ -2,16 +2,12 @@ const accurateService = require('../services/accurateService');
 const purchaseInvoiceModel = require('../models/purchaseInvoiceModel');
 
 // Helper: Create date filter for Accurate API
-// Format: filter.{field}.val as array [fromDate, toDate]
-// Axios will convert to: filter.{field}.val=fromDate&filter.{field}.val=toDate
-const createDateFilter = (dateFilterType, fromDate, toDate, includeOutstanding = true) => {
+const createDateFilter = (dateFilterType, fromDate, toDate) => {
   const filterKey = `filter.${dateFilterType}`;
-  const filters = {
-    [`${filterKey}.op`]: 'BETWEEN',  // Operator
-    [`${filterKey}.val`]: [fromDate, toDate]  // Array for multiple values
+  return {
+    [`${filterKey}.op`]: 'BETWEEN',
+    [`${filterKey}.val`]: [fromDate, toDate]
   };
-  
-  return filters;
 };
 
 const purchaseInvoiceController = {
@@ -22,7 +18,7 @@ const purchaseInvoiceController = {
         branchId, 
         dateFrom, 
         dateTo, 
-        dateFilterType = 'createdDate'
+        dateFilterType = 'transDate'
       } = request.query;
 
       if (!branchId) {
@@ -47,46 +43,16 @@ const purchaseInvoiceController = {
       const fromDate = formatDateForAccurate(dateFrom || today);
       const toDate = formatDateForAccurate(dateTo || today);
       
-      const filters = createDateFilter(dateFilterType, fromDate, toDate, false);
-
-      console.log(`🔍 Checking sync status for ${branch.name}...`);
-      console.log(`📅 Date Filter:`, {
-        filterType: dateFilterType,
-        from: fromDate,
-        to: toDate
-      });
-      console.log(`🔧 API Filters:`, filters);
+      const filters = createDateFilter(dateFilterType, fromDate, toDate);
 
       // 1. Fetch list from Accurate API (all pages)
       const apiResult = await accurateService.fetchListOnly('purchase-invoice', branch.dbId, filters, branchId);
       
-      // Debug: Log pagination info
-      console.log(`📊 API Pagination:`, {
-        rowCount: apiResult.pagination.rowCount,
-        pageSize: apiResult.pagination.pageSize,
-        currentPage: apiResult.pagination.page || 1
-      });
-      
-      // Fetch all pages if needed
       let allApiItems = [...apiResult.items];
       const totalPages = Math.ceil(apiResult.pagination.rowCount / apiResult.pagination.pageSize);
       
-      console.log(`📄 Calculated: ${totalPages} total pages (${apiResult.pagination.rowCount} rows ÷ ${apiResult.pagination.pageSize} per page)`);
-      
-      // Safety: Limit max pages to avoid excessive API calls
-      const MAX_PAGES = 100; // Max 100 pages = 100,000 invoices
-      let pagesToFetch = totalPages;
-      
-      if (totalPages > MAX_PAGES) {
-        console.warn(`⚠️  Too many pages (${totalPages})! Limiting to ${MAX_PAGES} pages for safety.`);
-        console.warn(`⚠️  This will fetch ${MAX_PAGES * apiResult.pagination.pageSize} out of ${apiResult.pagination.rowCount} invoices.`);
-        console.warn(`⚠️  Consider using smaller date range or contact admin.`);
-        pagesToFetch = MAX_PAGES;
-      }
-      
-      if (pagesToFetch > 1) {
-        console.log(`📄 Fetching ${pagesToFetch - 1} more pages...`);
-        for (let page = 2; page <= pagesToFetch; page++) {
+      if (totalPages > 1) {
+        for (let page = 2; page <= totalPages; page++) {
           const pageFilters = { ...filters, 'sp.page': page };
           const pageResult = await accurateService.fetchListOnly('purchase-invoice', branch.dbId, pageFilters, branchId);
           allApiItems = allApiItems.concat(pageResult.items);
@@ -94,42 +60,29 @@ const purchaseInvoiceController = {
         }
       }
 
-      console.log(`📊 API: ${allApiItems.length} invoices`);
+      // 2. Get existing invoices from database
+      const dbInvoices = await purchaseInvoiceModel.getExistingForSync(branchId, dateFrom || today, dateTo || today);
+      const dbMap = new Map(dbInvoices.map(inv => [parseInt(inv.invoice_id), inv]));
 
-      // 2. Get existing from database
-      const dbInvoices = await purchaseInvoiceModel.getExistingForSync(
-        branchId,
-        dateFrom || today,
-        dateTo || today
-      );
-
-      console.log(`💾 DB: ${dbInvoices.length} invoices`);
-
-      // 3. Create lookup map
-      const dbMap = new Map(dbInvoices.map(inv => [inv.invoice_id, inv]));
-
-      // 4. Categorize
+      // 3. Compare and categorize
       const newInvoices = [];
       const updatedInvoices = [];
       const unchangedInvoices = [];
 
       for (const apiInv of allApiItems) {
-        const dbInv = dbMap.get(apiInv.id);
-
+        const dbInv = dbMap.get(parseInt(apiInv.id));
+        
         if (!dbInv) {
-          // Not in DB → New
           newInvoices.push({
             id: apiInv.id,
             number: apiInv.number,
             optLock: apiInv.optLock
           });
         } else {
-          // In DB → Check optLock
           const apiOptLock = parseInt(apiInv.optLock || 0);
           const dbOptLock = parseInt(dbInv.opt_lock || 0);
 
           if (apiOptLock > dbOptLock) {
-            // Modified in Accurate → Updated
             updatedInvoices.push({
               id: apiInv.id,
               number: apiInv.number,
@@ -137,7 +90,6 @@ const purchaseInvoiceController = {
               dbOptLock: dbInv.opt_lock
             });
           } else {
-            // Same → Unchanged
             unchangedInvoices.push({
               id: apiInv.id,
               number: apiInv.number
@@ -147,8 +99,6 @@ const purchaseInvoiceController = {
       }
 
       const needSync = newInvoices.length + updatedInvoices.length;
-
-      console.log(`✅ Check complete: ${newInvoices.length} new, ${updatedInvoices.length} updated, ${unchangedInvoices.length} unchanged`);
 
       return reply.send({
         success: true,
@@ -171,14 +121,13 @@ const purchaseInvoiceController = {
           inDatabase: dbInvoices.length
         },
         invoices: {
-          new: newInvoices.slice(0, 20),  // Limit to 20 for display
+          new: newInvoices.slice(0, 20),
           updated: updatedInvoices.slice(0, 20),
           hasMore: {
             new: newInvoices.length > 20,
             updated: updatedInvoices.length > 20
           }
-        },
-        recommendation: needSync === 0 ? 'up_to_date' : 'sync_needed'
+        }
       });
     } catch (error) {
       console.error('Error in checkSyncStatus:', error);
@@ -189,21 +138,15 @@ const purchaseInvoiceController = {
     }
   },
 
-  // Count purchase invoices without fetching details (dry-run)
+  // Count invoices (dry-run)
   async countInvoices(request, reply) {
     try {
-      const { 
-        branchId, 
-        dateFrom, 
-        dateTo, 
-        dateFilterType = 'createdDate'
-      } = request.query;
+      const { branchId, dateFrom, dateTo, dateFilterType = 'transDate' } = request.query;
 
       if (!branchId) {
         return reply.code(400).send({ error: 'branchId is required' });
       }
 
-      // Get branch info
       const branches = accurateService.getBranches();
       const branch = branches.find(b => b.id === branchId);
       
@@ -211,9 +154,6 @@ const purchaseInvoiceController = {
         return reply.code(404).send({ error: 'Branch not found' });
       }
 
-      console.log(`Counting invoices for ${branch.name}...`);
-
-      // Setup date filter
       const today = new Date().toISOString().split('T')[0];
       
       const formatDateForAccurate = (dateStr) => {
@@ -225,43 +165,16 @@ const purchaseInvoiceController = {
       const fromDate = formatDateForAccurate(dateFrom || today);
       const toDate = formatDateForAccurate(dateTo || today);
       
-      const filters = createDateFilter(dateFilterType, fromDate, toDate, false);
-
-      // Fetch only first page to get rowCount
-      const response = await accurateService.fetchDataWithFilter(
-        'purchase-invoice/list',
-        branch.dbId,
-        filters,
-        branchId
-      );
-
-      if (!response.s || !response.sp) {
-        return reply.code(500).send({ error: 'Invalid response from Accurate API' });
-      }
-
-      const totalRows = response.sp.rowCount;
-      const pageSize = response.sp.pageSize || 1000;
-      const totalPages = Math.ceil(totalRows / pageSize);
+      const filters = createDateFilter(dateFilterType, fromDate, toDate);
+      const apiResult = await accurateService.fetchListOnly('purchase-invoice', branch.dbId, filters, branchId);
 
       return reply.send({
         success: true,
-        branch: {
-          id: branch.id,
-          name: branch.name,
-          dbId: branch.dbId
-        },
-        dateRange: {
-          from: dateFrom || today,
-          to: dateTo || today,
-          filterType: dateFilterType
-        },
-        count: {
-          totalInvoices: totalRows,
-          pageSize: pageSize,
-          totalPages: totalPages,
-          estimatedApiCalls: totalRows, // 1 call per invoice for details
-          estimatedTime: `~${Math.ceil(totalRows / 50 * 0.3)} seconds` // batch 50, delay 300ms
-        }
+        branch: branch.name,
+        dateRange: { from: dateFrom || today, to: dateTo || today },
+        count: apiResult.pagination.rowCount,
+        pageSize: apiResult.pagination.pageSize,
+        totalPages: Math.ceil(apiResult.pagination.rowCount / apiResult.pagination.pageSize)
       });
     } catch (error) {
       console.error('Error in countInvoices:', error);
@@ -272,8 +185,8 @@ const purchaseInvoiceController = {
     }
   },
 
-  // Sync purchase invoices from Accurate API
-  async syncFromAccurate(request, reply) {
+  // Smart sync: Only sync new + updated invoices
+  async syncSmart(request, reply) {
     const startTime = Date.now();
     
     try {
@@ -281,11 +194,10 @@ const purchaseInvoiceController = {
         branchId, 
         dateFrom, 
         dateTo, 
-        maxItems, 
-        dateFilterType = 'createdDate',
+        dateFilterType = 'transDate',
         batchSize = 50,
         batchDelay = 300,
-        streamInsert = 'true'
+        mode = 'missing'
       } = request.query;
 
       if (!branchId) {
@@ -301,98 +213,343 @@ const purchaseInvoiceController = {
 
       const today = new Date().toISOString().split('T')[0];
       console.log(`\n${'='.repeat(60)}`);
-      console.log(`🚀 SYNC STARTED: ${branch.name}`);
+      console.log(`🚀 SMART SYNC STARTED: ${branch.name} (Purchase Invoice)`);
       console.log(`📅 Date Range: ${dateFrom || today} to ${dateTo || today}`);
-      console.log(`⚙️  Batch Size: ${batchSize}, Delay: ${batchDelay}ms`);
+      console.log(`⚙️  Mode: ${mode === 'missing' ? 'Missing Only' : 'All'}`);
       console.log(`${'='.repeat(60)}\n`);
 
-      // Use streaming service if enabled
-      if (streamInsert === 'true') {
-        const result = await accurateService.fetchAndStreamInsert(
-          'purchase-invoice',
-          branch.dbId,
-          { 
-            maxItems, 
-            dateFrom, 
-            dateTo, 
-            dateFilterType,
-            batchSize: parseInt(batchSize),
-            batchDelay: parseInt(batchDelay)
-          },
-          branchId,
-          branch.name,
-          // Callback for each batch
-          async (batchDetails) => {
-            return await purchaseInvoiceController._saveBatch(batchDetails, branchId, branch.name);
-          }
-        );
+      // 1. Get list of all invoices in date range
+      const formatDateForAccurate = (dateStr) => {
+        if (!dateStr) return null;
+        const [year, month, day] = dateStr.split('-');
+        return `${day}/${month}/${year}`;
+      };
+      
+      const fromDate = formatDateForAccurate(dateFrom || today);
+      const toDate = formatDateForAccurate(dateTo || today);
+      
+      const filters = {
+        [`filter.${dateFilterType}.op`]: 'BETWEEN',
+        [`filter.${dateFilterType}.val`]: [fromDate, toDate]
+      };
 
-        const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+      console.log(`📋 Fetching list from ${fromDate} to ${toDate}...`);
+      const apiResult = await accurateService.fetchListOnly('purchase-invoice', branch.dbId, filters, branchId);
+      let allApiItems = [...apiResult.items];
+      
+      const totalPages = Math.ceil(apiResult.pagination.rowCount / apiResult.pagination.pageSize);
+      if (totalPages > 1) {
+        console.log(`📄 Fetching ${totalPages - 1} more pages...`);
+        for (let page = 2; page <= totalPages; page++) {
+          const pageFilters = { ...filters, 'sp.page': page };
+          const pageResult = await accurateService.fetchListOnly('purchase-invoice', branch.dbId, pageFilters, branchId);
+          allApiItems = allApiItems.concat(pageResult.items);
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+      
+      console.log(`📊 Total API invoices: ${allApiItems.length}`);
+
+      // 2. Determine which invoices to sync
+      let invoiceIdsToSync = [];
+      
+      if (mode === 'missing') {
+        const dbInvoices = await purchaseInvoiceModel.getExistingForSync(branchId, dateFrom || today, dateTo || today);
+        const dbMap = new Map(dbInvoices.map(inv => [inv.invoice_id, inv]));
         
-        console.log(`\n${'='.repeat(60)}`);
-        console.log(`✅ SYNC COMPLETED: ${branch.name}`);
-        console.log(`⏱️  Duration: ${duration}s`);
-        console.log(`📊 Saved: ${result.savedCount}, Errors: ${result.errorCount}`);
-        console.log(`${'='.repeat(60)}\n`);
+        for (const apiInv of allApiItems) {
+          const dbInv = dbMap.get(apiInv.id);
+          
+          if (!dbInv) {
+            invoiceIdsToSync.push(apiInv.id);
+          } else {
+            const apiOptLock = parseInt(apiInv.optLock || 0);
+            const dbOptLock = parseInt(dbInv.opt_lock || 0);
+            
+            if (apiOptLock > dbOptLock) {
+              invoiceIdsToSync.push(apiInv.id);
+            }
+          }
+        }
+        
+        console.log(`⚡ Syncing missing only: ${invoiceIdsToSync.length} invoices\n`);
+      } else {
+        invoiceIdsToSync = allApiItems.map(inv => inv.id);
+        console.log(`🔄 Re-syncing all: ${invoiceIdsToSync.length} invoices\n`);
+      }
 
+      if (invoiceIdsToSync.length === 0) {
+        const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+        console.log(`✅ Nothing to sync! All data is up-to-date.\n`);
+        
         return reply.send({
           success: true,
-          message: `Synced ${result.savedCount} invoices from ${branch.name}`,
+          message: 'All data is up-to-date',
           summary: {
             branch: branch.name,
             dateRange: { from: dateFrom || today, to: dateTo || today },
-            totalFetched: result.totalFetched,
-            saved: result.savedCount,
-            errors: result.errorCount,
+            totalChecked: allApiItems.length,
+            synced: 0,
+            skipped: allApiItems.length - invoiceIdsToSync.length,
             duration: `${duration}s`
           }
         });
       }
 
-      // Fallback to old method (fetch all then insert)
-      const result = await accurateService.fetchListWithDetails(
-        'purchase-invoice',
-        branch.dbId,
-        { 
-          maxItems, 
-          dateFrom, 
-          dateTo, 
-          dateFilterType,
-          batchSize: parseInt(batchSize),
-          batchDelay: parseInt(batchDelay)
-        },
-        branchId
-      );
+      // 3. Fetch details and save (in batches)
+      const totalBatches = Math.ceil(invoiceIdsToSync.length / batchSize);
+      let savedCount = 0;
+      let errorCount = 0;
+      let fetchErrorCount = 0;
 
-      if (!result.success) {
-        return reply.code(500).send({ error: 'Failed to fetch from Accurate API' });
+      const fetchWithRetry = async (invoiceId, maxRetries = 2) => {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            const response = await accurateService.fetchDetail('purchase-invoice', invoiceId, branch.dbId, branchId);
+            
+            if (!response || !response.d) {
+              return { error: true, id: invoiceId, message: 'Invalid response structure' };
+            }
+            
+            return response;
+          } catch (err) {
+            const is502 = err.message?.includes('502 Bad Gateway');
+            const isTimeout = err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT';
+            
+            if ((is502 || isTimeout) && attempt < maxRetries) {
+              console.log(`   ├─ 🔄 Retry ${attempt}/${maxRetries} for ID ${invoiceId} (${is502 ? '502' : 'timeout'})`);
+              await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+              continue;
+            }
+            
+            return { error: true, id: invoiceId, message: err.message };
+          }
+        }
+        
+        return { error: true, id: invoiceId, message: 'Max retries exceeded' };
+      };
+
+      for (let i = 0; i < invoiceIdsToSync.length; i += batchSize) {
+        const batch = invoiceIdsToSync.slice(i, i + batchSize);
+        const batchNum = Math.floor(i / batchSize) + 1;
+        
+        console.log(`📦 Batch ${batchNum}/${totalBatches} (${batch.length} items)`);
+        console.log(`   ├─ Fetching details with retry...`);
+        
+        const batchPromises = batch.map(id => fetchWithRetry(id, 2));
+        const batchDetails = await Promise.all(batchPromises);
+        
+        const successDetails = batchDetails.filter(d => !d.error);
+        const failedDetails = batchDetails.filter(d => d.error);
+        
+        fetchErrorCount += failedDetails.length;
+        
+        console.log(`   ├─ Fetched: ${successDetails.length}/${batch.length} (${failedDetails.length} fetch errors)`);
+        
+        if (failedDetails.length > 0) {
+          failedDetails.forEach(f => {
+            console.log(`   │  ❌ ID ${f.id}: ${f.message}`);
+          });
+        }
+        
+        if (successDetails.length > 0) {
+          console.log(`   └─ Saving ${successDetails.length} invoices to database...`);
+          
+          const saveResult = await purchaseInvoiceController._saveBatch(successDetails, branchId, branch.name);
+          savedCount += saveResult.savedCount;
+          errorCount += saveResult.errorCount;
+          
+          console.log(`   ✅ Batch ${batchNum} done: ${saveResult.savedCount} saved, ${saveResult.errorCount} save errors\n`);
+        } else {
+          console.log(`   ⚠️  Batch ${batchNum} skipped: No valid data to save\n`);
+        }
+        
+        if (i + batchSize < invoiceIdsToSync.length) {
+          await new Promise(resolve => setTimeout(resolve, batchDelay));
+        }
       }
 
-      const saveResult = await purchaseInvoiceController._saveBatch(result.items, branchId, branch.name);
-      
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+      const totalErrors = fetchErrorCount + errorCount;
       
-      console.log(`\n${'='.repeat(60)}`);
-      console.log(`✅ SYNC COMPLETED: ${branch.name}`);
+      console.log(`${'='.repeat(60)}`);
+      console.log(`✅ SMART SYNC COMPLETED: ${branch.name} (Purchase Invoice)`);
       console.log(`⏱️  Duration: ${duration}s`);
-      console.log(`📊 Saved: ${saveResult.savedCount}, Errors: ${saveResult.errorCount}`);
+      console.log(`📊 Saved: ${savedCount}, Errors: ${totalErrors}`);
       console.log(`${'='.repeat(60)}\n`);
 
       return reply.send({
         success: true,
-        message: `Synced ${saveResult.savedCount} invoices from ${branch.name}`,
+        message: `Synced ${savedCount} invoices from ${branch.name}`,
         summary: {
           branch: branch.name,
-          fetched: result.items.length,
-          saved: saveResult.savedCount,
-          errors: saveResult.errorCount,
-          apiErrors: result.errors?.length || 0,
+          dateRange: { from: dateFrom || today, to: dateTo || today },
+          totalChecked: allApiItems.length,
+          totalToSync: invoiceIdsToSync.length,
+          saved: savedCount,
+          errors: totalErrors,
           duration: `${duration}s`
         }
       });
     } catch (error) {
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-      console.error(`\n❌ SYNC FAILED after ${duration}s:`, error.message);
+      console.error(`\n❌ SMART SYNC FAILED after ${duration}s:`, error.message);
+      return reply.code(500).send({ 
+        error: 'Internal server error',
+        message: error.message 
+      });
+    }
+  },
+
+  // Sync all invoices from Accurate API (full sync)
+  async syncFromAccurate(request, reply) {
+    const startTime = Date.now();
+    
+    try {
+      const { 
+        branchId, 
+        dateFrom, 
+        dateTo, 
+        dateFilterType = 'transDate',
+        batchSize = 50,
+        batchDelay = 300
+      } = request.query;
+
+      if (!branchId) {
+        return reply.code(400).send({ error: 'branchId is required' });
+      }
+
+      const branches = accurateService.getBranches();
+      const branch = branches.find(b => b.id === branchId);
+      
+      if (!branch) {
+        return reply.code(404).send({ error: 'Branch not found' });
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+      console.log(`\n${'='.repeat(60)}`);
+      console.log(`🚀 FULL SYNC STARTED: ${branch.name} (Purchase Invoice)`);
+      console.log(`📅 Date Range: ${dateFrom || today} to ${dateTo || today}`);
+      console.log(`${'='.repeat(60)}\n`);
+
+      // 1. Get list of all invoices in date range
+      const formatDateForAccurate = (dateStr) => {
+        if (!dateStr) return null;
+        const [year, month, day] = dateStr.split('-');
+        return `${day}/${month}/${year}`;
+      };
+      
+      const fromDate = formatDateForAccurate(dateFrom || today);
+      const toDate = formatDateForAccurate(dateTo || today);
+      
+      const filters = createDateFilter(dateFilterType, fromDate, toDate);
+
+      console.log(`📋 Fetching all invoices from ${fromDate} to ${toDate}...`);
+      const apiResult = await accurateService.fetchListOnly('purchase-invoice', branch.dbId, filters, branchId);
+      let allApiItems = [...apiResult.items];
+      
+      const totalPages = Math.ceil(apiResult.pagination.rowCount / apiResult.pagination.pageSize);
+      if (totalPages > 1) {
+        console.log(`📄 Fetching ${totalPages - 1} more pages...`);
+        for (let page = 2; page <= totalPages; page++) {
+          const pageFilters = { ...filters, 'sp.page': page };
+          const pageResult = await accurateService.fetchListOnly('purchase-invoice', branch.dbId, pageFilters, branchId);
+          allApiItems = allApiItems.concat(pageResult.items);
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+      
+      console.log(`📊 Total invoices to sync: ${allApiItems.length}\n`);
+
+      if (allApiItems.length === 0) {
+        const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+        console.log(`✅ No invoices to sync.\n`);
+        
+        return reply.send({
+          success: true,
+          message: 'No invoices to sync',
+          summary: {
+            branch: branch.name,
+            dateRange: { from: dateFrom || today, to: dateTo || today },
+            totalFetched: 0,
+            saved: 0,
+            errors: 0,
+            duration: `${duration}s`
+          }
+        });
+      }
+
+      // 2. Fetch details and save (in batches)
+      let savedCount = 0;
+      let errorCount = 0;
+      let fetchErrorCount = 0;
+
+      for (let i = 0; i < allApiItems.length; i += batchSize) {
+        const batchNum = Math.floor(i / batchSize) + 1;
+        const batchItems = allApiItems.slice(i, i + batchSize);
+        
+        console.log(`\n📦 Batch ${batchNum} (${batchItems.length} items):`);
+        console.log(`   ├─ Fetching details...`);
+        
+        const detailsPromises = batchItems.map(item =>
+          accurateService.fetchWithRetry('purchase-invoice', branch.dbId, item.id, branchId)
+            .catch(err => ({ error: true, id: item.id, message: err.message }))
+        );
+        
+        const detailsResults = await Promise.all(detailsPromises);
+        
+        const successDetails = detailsResults.filter(d => !d.error).map(d => d.d || d);
+        const failedDetails = detailsResults.filter(d => d.error);
+        
+        if (failedDetails.length > 0) {
+          console.log(`   │  ⚠️  ${failedDetails.length} fetch errors`);
+          fetchErrorCount += failedDetails.length;
+          failedDetails.forEach(f => {
+            console.log(`   │  ❌ ID ${f.id}: ${f.message}`);
+          });
+        }
+        
+        if (successDetails.length > 0) {
+          console.log(`   └─ Saving ${successDetails.length} invoices to database...`);
+          
+          const saveResult = await purchaseInvoiceController._saveBatch(successDetails, branchId, branch.name);
+          savedCount += saveResult.savedCount;
+          errorCount += saveResult.errorCount;
+          
+          console.log(`   ✅ Batch ${batchNum} done: ${saveResult.savedCount} saved, ${saveResult.errorCount} save errors\n`);
+        } else {
+          console.log(`   ⚠️  Batch ${batchNum} skipped: No valid data to save\n`);
+        }
+        
+        if (i + batchSize < allApiItems.length) {
+          await new Promise(resolve => setTimeout(resolve, batchDelay));
+        }
+      }
+
+      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+      const totalErrors = fetchErrorCount + errorCount;
+      
+      console.log(`${'='.repeat(60)}`);
+      console.log(`✅ FULL SYNC COMPLETED: ${branch.name} (Purchase Invoice)`);
+      console.log(`⏱️  Duration: ${duration}s`);
+      console.log(`📊 Saved: ${savedCount}, Errors: ${totalErrors}`);
+      console.log(`${'='.repeat(60)}\n`);
+
+      return reply.send({
+        success: true,
+        message: `Synced ${savedCount} invoices from ${branch.name}`,
+        summary: {
+          branch: branch.name,
+          dateRange: { from: dateFrom || today, to: dateTo || today },
+          totalFetched: allApiItems.length,
+          saved: savedCount,
+          errors: totalErrors,
+          duration: `${duration}s`
+        }
+      });
+    } catch (error) {
+      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+      console.error(`\n❌ FULL SYNC FAILED after ${duration}s:`, error.message);
       return reply.code(500).send({ 
         error: 'Internal server error',
         message: error.message 
@@ -411,7 +568,7 @@ const purchaseInvoiceController = {
         const invoiceData = item.d || item;
         
         if (!invoiceData || !invoiceData.id) {
-          const errorMsg = `Skipping item with no ID. Item structure: ${JSON.stringify(item).substring(0, 200)}`;
+          const errorMsg = `Skipping item with no ID`;
           console.warn(`⚠️  ${errorMsg}`);
           errors.push({ invoice: 'unknown', error: errorMsg });
           errorCount++;
@@ -453,18 +610,7 @@ const purchaseInvoiceController = {
             return date.toISOString().split('T')[0];
           }
           
-          console.warn(`⚠️  Unable to parse date: ${dateStr}`);
           return null;
-        };
-        
-        // Calculate age (days between created_date and today)
-        const calculateAge = (dateStr) => {
-          if (!dateStr) return null;
-          const date = new Date(convertDate(dateStr));
-          const today = new Date();
-          const diffTime = Math.abs(today - date);
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          return diffDays;
         };
         
         const headerData = {
@@ -473,38 +619,43 @@ const purchaseInvoiceController = {
           branch_id: branchId,
           branch_name: branchName,
           trans_date: convertDate(invoiceData.transDate),
-          created_date: convertDate(invoiceData.transDateView || invoiceData.createdDate),
-          vendor_no: invoiceData.vendor?.vendorNo || null,
+          invoice_date: convertDate(invoiceData.transDate),
+          due_date: convertDate(invoiceData.dueDate),
+          vendor_id: invoiceData.vendor?.id || null,
           vendor_name: invoiceData.vendor?.name || null,
           bill_number: invoiceData.billNumber || null,
-          age: calculateAge(invoiceData.transDateView || invoiceData.createdDate),
-          warehouse_id: null,
-          warehouse_name: null,
           subtotal: invoiceData.subTotal || 0,
-          discount: invoiceData.cashDiscount || 0,
-          tax: invoiceData.tax1Amount || 0,
-          total: invoiceData.totalAmount || 0,
+          tax_amount: invoiceData.tax1Amount || 0,
+          total_amount: invoiceData.totalAmount || 0,
+          prime_owing: invoiceData.primeOwing || 0,
           status_name: invoiceData.statusName || null,
+          ap_account_id: invoiceData.apAccount?.id || null,
+          ap_account_no: invoiceData.apAccount?.no || null,
           created_by: invoiceData.createdBy || null,
+          opt_lock: parseInt(invoiceData.optLock || 0),
           raw_data: invoiceData
         };
 
         const items = (invoiceData.detailItem || []).map(detail => ({
+          detail_id: detail.id || null,
+          item_id: detail.itemId || null,
           item_no: detail.item?.no || 'N/A',
-          item_name: detail.item?.name || '',
+          item_name: detail.detailName || detail.item?.name || '',
           quantity: detail.quantity || 0,
           unit_name: detail.itemUnit?.name || '',
           unit_price: detail.unitPrice || 0,
           discount: detail.itemCashDiscount || 0,
           amount: detail.purchaseAmountBase || detail.totalPrice || 0,
+          warehouse_id: detail.warehouse?.id || null,
           warehouse_name: detail.warehouse?.name || null,
+          gl_inventory_id: detail.item?.inventoryGlAccountId || null,
+          gl_cogs_id: detail.item?.cogsGlAccountId || null,
           item_category: detail.item?.itemCategoryId || null
         }));
 
         await purchaseInvoiceModel.create(headerData, items);
         savedCount++;
         
-        // Progress indicator every 10 invoices
         if (savedCount % 10 === 0) {
           process.stdout.write(`💾 Saved: ${savedCount}\r`);
         }
@@ -516,7 +667,6 @@ const purchaseInvoiceController = {
       }
     }
 
-    // Log error summary if there are errors
     if (errors.length > 0 && errors.length <= 5) {
       console.log(`\n⚠️  Error Details:`);
       errors.forEach(e => console.log(`   - ${e.invoice}: ${e.error}`));
@@ -525,7 +675,7 @@ const purchaseInvoiceController = {
       errors.slice(0, 5).forEach(e => console.log(`   - ${e.invoice}: ${e.error}`));
     }
 
-    return { savedCount, errorCount, errors };
+    return { savedCount, errorCount };
   },
 
   // Get invoices from database
@@ -535,7 +685,8 @@ const purchaseInvoiceController = {
         branchId, 
         dateFrom, 
         dateTo, 
-        vendorNo,
+        vendorId,
+        statusName,
         limit = 100,
         offset = 0
       } = request.query;
@@ -544,7 +695,8 @@ const purchaseInvoiceController = {
         branch_id: branchId,
         date_from: dateFrom,
         date_to: dateTo,
-        vendor_no: vendorNo,
+        vendor_id: vendorId,
+        status_name: statusName,
         limit: parseInt(limit),
         offset: parseInt(offset)
       };
