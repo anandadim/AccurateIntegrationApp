@@ -91,7 +91,7 @@ const purchaseOrderController = {
           process.stdout.write(`💾 Saved: ${savedCount}\r`);
         }
       }catch(err){
-        const orderNum = item.d?.number || item.number || 'unknown';
+        const orderNum = item.d?.id || item.id || 'unknown';
         console.error(`❌ Error saving order ${orderNum}:`, err.message);
         errors.push({ order: orderNum, error: err.message });
         errorCount++;

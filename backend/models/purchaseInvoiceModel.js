@@ -66,29 +66,31 @@ const purchaseInvoiceModel = {
       if (items && items.length > 0) {
         const itemQuery = `
           INSERT INTO purchase_invoice_items (
-            invoice_id, detail_id, branch_id, invoice_number, item_no, item_name,
+            invoice_id, detail_id, branch_id, seq, invoice_number, item_no, item_name,
             quantity, unit_name, unit_price, discount, amount,
             warehouse_name, item_category
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+             ON CONFLICT (invoice_id, detail_id, branch_id,seq)
+             DO UPDATE SET
+              invoice_number = EXCLUDED.invoice_number,
+              item_no = EXCLUDED.item_no,
+              item_name = EXCLUDED.item_name,
+              quantity = EXCLUDED.quantity,
+              unit_name = EXCLUDED.unit_name,
+              unit_price = EXCLUDED.unit_price,
+              discount = EXCLUDED.discount,
+              amount = EXCLUDED.amount,
+              warehouse_name = EXCLUDED.warehouse_name,
+              item_category = EXCLUDED.item_category
         `;
-                //   ON CONFLICT (invoice_id, detail_id)
-        // DO UPDATE SET
-        //   item_no = EXCLUDED.item_no,
-        //   item_name = EXCLUDED.item_name,
-        //   quantity = EXCLUDED.quantity,
-        //   unit_name = EXCLUDED.unit_name,
-        //   unit_price = EXCLUDED.unit_price,
-        //   discount = EXCLUDED.discount,
-        //   amount = EXCLUDED.amount,
-        //   warehouse_name = EXCLUDED.warehouse_name,
-        //   item_category = EXCLUDED.item_category
+        
 
         for (const item of items) {
           const itemValues = [
             invoiceId,
             item.detail_id,
             headerData.branch_id,
+            item.seq,
             headerData.invoice_number,
             item.item_no,
             item.item_name,
