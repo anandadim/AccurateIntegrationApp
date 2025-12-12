@@ -20,7 +20,7 @@ const purchaseOrderModel = {
         ) VALUES (
           $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21
         )
-        ON CONFLICT (order_number, branch_id)
+        ON CONFLICT (order_id, branch_id)
         DO UPDATE SET
           order_id        = EXCLUDED.order_id,
           trans_date      = EXCLUDED.trans_date,
@@ -38,7 +38,7 @@ const purchaseOrderModel = {
           opt_lock        = EXCLUDED.opt_lock,
           raw_data        = EXCLUDED.raw_data,
           updated_at      = CURRENT_TIMESTAMP
-        RETURNING id
+        RETURNING order_id
       `;
 
       const headerValues = [
@@ -66,7 +66,7 @@ const purchaseOrderModel = {
       ];
 
       const res = await client.query(headerQuery, headerValues);
-      const dbHeaderId = res.rows[0].id;
+      const dbHeaderId = res.rows[0].order_id;
 
       // Remove previous items for this order (idempotent update)
       //await client.query('DELETE FROM purchase_order_items WHERE order_id = $1', [orderData.order_id]);
@@ -75,19 +75,34 @@ const purchaseOrderModel = {
       if (items && items.length > 0) {
         const itemQuery = `
           INSERT INTO purchase_order_items (
-            order_id, branch_id,
-            item_id, item_no, item_name,
+            order_id, order_number, branch_id,
+            seq, item_id, item_no, item_name,
             quantity, unit_id, unit_name,
             unit_price, total_price, tax_rate,
             warehouse_id, warehouse_name, notes
           ) VALUES (
-            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14
-          )`;
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15
+          )
+          ON CONFLICT (order_id, detail_id, branch_id,seq)
+          DO UPDATE SET
+          order_number = EXCLUDED.order_number,
+          item_no = EXCLUDED.item_no,
+          item_name = EXCLUDED.item_name,
+          quantity = EXCLUDED.quantity,
+          unit_name = EXCLUDED.unit_name,
+          unit_price = EXCLUDED.unit_price,
+          discount = EXCLUDED.discount,
+          amount = EXCLUDED.amount,
+          warehouse_name = EXCLUDED.warehouse_name,
+          item_category = EXCLUDED.item_category
+        `;
 
         for (const item of items) {
           await client.query(itemQuery, [
             orderData.order_id,
+            orderData.order_number,
             orderData.branch_id,
+            item.seq,
             item.item_id || null,
             item.item_no || null,
             item.item_name || null,
