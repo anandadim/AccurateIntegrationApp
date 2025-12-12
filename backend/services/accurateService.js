@@ -224,7 +224,27 @@ const accurateService = {
         params['sp.pageSize'] = 1000;
       }
       
-      const response = await client.get(url, { params });
+      console.log(`🌐 fetchDataWithFilter - URL: ${url}, Params:`, JSON.stringify(params, null, 2));
+      
+      const response = await client.get(url, { 
+        params,
+        paramsSerializer: {
+          serialize: (params) => {
+            const parts = [];
+            for (const [key, value] of Object.entries(params)) {
+              if (Array.isArray(value)) {
+                // For array, add same key multiple times
+                value.forEach(v => parts.push(`${key}=${encodeURIComponent(v)}`));
+              } else {
+                parts.push(`${key}=${encodeURIComponent(value)}`);
+              }
+            }
+            const queryString = parts.join('&');
+            console.log(`🔗 fetchDataWithFilter - Query String: ${queryString}`);
+            return queryString;
+          }
+        }
+      });
       return response.data;
     } catch (error) {
       console.error(`Error fetching ${endpoint} with filters:`, error.response?.data || error.message);
@@ -257,8 +277,8 @@ const accurateService = {
       
       const filterKey = `filter.${dateFilterType}`;
       const filters = {
-        [`${filterKey}.from`]: fromDate,
-        [`${filterKey}.to`]: toDate
+        [`${filterKey}.op`]: 'BETWEEN',
+        [`${filterKey}.val`]: [fromDate, toDate]
       };
       
       // 1. Get first page
@@ -379,6 +399,9 @@ const accurateService = {
       
       const fromDate = formatDateForAccurate(dateFrom || today);
       const toDate = formatDateForAccurate(dateTo || today);
+      
+      console.log(`🔍 fetchListWithDetails - Input: dateFrom=${dateFrom}, dateTo=${dateTo}, dateFilterType=${dateFilterType}`);
+      console.log(`🔍 fetchListWithDetails - Formatted: fromDate=${fromDate}, toDate=${toDate}`);
       
       // Support flexible date filter: transDate, createdDate, modifiedDate
       // Accurate API format: filter.{field}.val as array

@@ -4,10 +4,12 @@ const salesReturnModel = require('../models/salesReturnModel');
 // Helper: create date filter object for Accurate API
 const createDateFilter = (dateFilterType, fromDate, toDate) => {
   const filterKey = `filter.${dateFilterType}`;
-  return {
+  const filters = {
     [`${filterKey}.op`]: 'BETWEEN',
     [`${filterKey}.val`]: [fromDate, toDate]
   };
+
+  return filters;
 };
 
 // Convert various date formats (Accurate) to YYYY-MM-DD
@@ -50,7 +52,7 @@ const salesReturnController = {
           return_number: r.number,
           branch_id: branchId,
           branch_name: branchName,
-          trans_date: convertDate(r.transDate || r.transDateView),
+          trans_date: convertDate(r.transDate),
           invoice_id: r.invoiceId || r.invoice?.id || null,
           invoice_number: r.invoice?.number || null,
           return_type: r.returnType || null,
@@ -102,13 +104,21 @@ const salesReturnController = {
   // GET /sales-returns/check-sync
   async checkSyncStatus(req, reply){
     try{
-      const {branchId, dateFrom, dateTo, dateFilterType='createdDate'} = req.query;
+      const {branchId, dateFrom, dateTo, dateFilterType='transDate'} = req.query;
       if(!branchId) return reply.code(400).send({error:'branchId is required'});
       const branches = accurateService.getBranches();
       const branch = branches.find(b=>b.id===branchId);
       if(!branch) return reply.code(404).send({error:'Branch not found'});
 
       const today = new Date().toISOString().split('T')[0];
+      
+      console.log(`🔍 Checking sync status for ${branch.name} (Sales Return)...`);
+      console.log(`📅 Date Filter:`, {
+        filterType: dateFilterType,
+        from: dateFrom || today,
+        to: dateTo || today
+      });
+
       const fmt = s => convertDate(s)?.split('-').reverse().join('/') || null; // to DD/MM/YYYY
       const fromDate = fmt(dateFrom || today);
       const toDate = fmt(dateTo || today);
@@ -117,7 +127,11 @@ const salesReturnController = {
       const apiResult = await accurateService.fetchListOnly('sales-return', branch.dbId, filters, branchId);
       let allApiItems = [...apiResult.items];
       const totalPages = Math.ceil(apiResult.pagination.rowCount / apiResult.pagination.pageSize);
+      
+      console.log(`📄 Calculated: ${totalPages} total pages (${apiResult.pagination.rowCount} rows)`);
+      
       if(totalPages>1){
+        console.log(`📄 Fetching ${totalPages - 1} more pages...`);
         for(let p=2;p<=totalPages;p++){
           const pageFilters = {...filters, 'sp.page': p};
           const res = await accurateService.fetchListOnly('sales-return', branch.dbId, pageFilters, branchId);
@@ -126,32 +140,71 @@ const salesReturnController = {
         }
       }
 
+      console.log(`📊 API: ${allApiItems.length} returns`);
+      if (allApiItems.length > 0) {
+        console.log(`📊 Sample API return IDs:`, allApiItems.slice(0, 5).map(o => o.id));
+      }
+
       const dbReturns = await salesReturnModel.getExistingForSync(branchId, dateFrom||today, dateTo||today);
-      const dbMap = new Map(dbReturns.map(r=>[r.sales_return_id, r]));
+      
+      console.log(`💾 DB: ${dbReturns.length} returns`);
+      if (dbReturns.length > 0) {
+        console.log(`💾 Sample DB return IDs:`, dbReturns.slice(0, 5).map(o => o.sales_return_id));
+      }
+
+      const dbMap = new Map(dbReturns.map(r=>[parseInt(r.return_number), r]));
 
       const newRecs=[], updatedRecs=[], unchangedRecs=[];
       for(const api of allApiItems){
-        const db = dbMap.get(api.id);
+        const db = dbMap.get(parseInt(api.number));
         if(!db){
-          newRecs.push({id:api.id, number:api.number, optLock:api.optLock});
+          newRecs.push({id:api.id, optLock:api.optLock});
         }else{
           const apiOpt = parseInt(api.optLock||0);
           const dbOpt = parseInt(db.opt_lock||0);
           if(apiOpt>dbOpt){
-            updatedRecs.push({id:api.id, number:api.number, optLock:api.optLock, dbOptLock:db.opt_lock});
+            updatedRecs.push({id:api.id, optLock:api.optLock, dbOptLock:db.opt_lock});
           }else{
-            unchangedRecs.push({id:api.id, number:api.number});
+            unchangedRecs.push({id:api.id});
           }
         }
       }
 
+      const needSync = newRecs.length + updatedRecs.length;
+
+      console.log(`✅ Check complete: ${newRecs.length} new, ${updatedRecs.length} updated, ${unchangedRecs.length} unchanged`);
+
       return reply.send({
         success:true,
-        branch:{id:branch.id,name:branch.name,dbId:branch.dbId},
-        dateRange:{from:dateFrom||today,to:dateTo||today,filterType:dateFilterType},
-        summary:{total:allApiItems.length,new:newRecs.length,updated:updatedRecs.length,unchanged:unchangedRecs.length,needSync:newRecs.length+updatedRecs.length,inDatabase:dbReturns.length},
-        returns:{new:newRecs.slice(0,20),updated:updatedRecs.slice(0,20),hasMore:{new:newRecs.length>20,updated:updatedRecs.length>20}},
-        recommendation:(newRecs.length+updatedRecs.length)===0?'up_to_date':'sync_needed'
+        branch:{
+          id:branch.id,
+          name:branch.name,
+          dbId:branch.dbId
+        },
+        dateRange:{
+          from:dateFrom||today,
+          to:dateTo||today,
+          filterType:dateFilterType
+        },
+        summary:{
+          total:allApiItems.length,
+          new:newRecs.length,
+          updated:updatedRecs.length,
+          unchanged:unchangedRecs.length,
+          needSync:needSync,
+          inDatabase:dbReturns.length
+        },
+        //returns:{new:newRecs.slice(0,20),updated:updatedRecs.slice(0,20),hasMore:{new:newRecs.length>20,updated:updatedRecs.length>20}},
+        //recommendation:(newRecs.length+updatedRecs.length)===0?'up_to_date':'sync_needed'
+        orders: {
+          new: newRecs.slice(0, 20),
+          updated: updatedRecs.slice(0, 20),
+          hasMore: {
+            new: newRecs.length > 20,
+            updated: updatedRecs.length > 20
+          }
+        },
+        recommendation: needSync === 0 ? 'up_to_date' : 'sync_needed'
       });
     }catch(err){
       console.error('salesReturn checkSyncStatus error', err);
@@ -163,7 +216,8 @@ const salesReturnController = {
   async syncFromAccurate(req, reply){
     const start = Date.now();
     try{
-      const {branchId, dateFrom, dateTo, maxItems, dateFilterType='createdDate', batchSize=50, batchDelay=300} = req.body;
+      const {branchId, dateFrom, dateTo, maxItems, dateFilterType='transDate', batchSize=50, batchDelay=300} = req.body;
+      console.log(`📤 Sync request received: dateFrom=${dateFrom}, dateTo=${dateTo}, dateFilterType=${dateFilterType}`);
       if(!branchId) return reply.code(400).send({error:'branchId is required'});
       const branches = accurateService.getBranches();
       const branch = branches.find(b=>b.id===branchId);
@@ -208,11 +262,27 @@ const salesReturnController = {
   // GET /sales-returns/summary/stats
   async getSummary(req, reply){
     try{
-      const {branchId,dateFrom,dateTo} = req.query;
-      const sum = await salesReturnModel.getSummary({branch_id:branchId,date_from:dateFrom,date_to:dateTo});
-      return reply.send({success:true,data:sum});
+      const {
+        branchId,
+        dateFrom,
+        dateTo
+      } = req.query;
+
+      const filters = {
+        branch_id: branchId,
+        date_from: dateFrom,
+        date_to: dateTo
+      };
+
+      const summary = await salesReturnModel.getSummary(filters);
+
+      return reply.send({
+        success:true,
+        data:summary
+      });
     }catch(e){
-      return reply.code(500).send({error:'Internal', message:e.message});
+      console.error('Error in getSummary:', e);
+      return reply.code(500).send({error:'Internal server error', message:e.message});
     }
   }
 };

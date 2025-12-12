@@ -9,6 +9,19 @@
       >
         📄 Sales Invoice Sync
       </button>
+    
+      <button 
+        @click="currentView = 'return-sync'" 
+        :class="{ active: currentView === 'return-sync' }"
+      >
+        ↩️ Sales Return Sync
+      </button>
+      <button 
+        @click="currentView = 'order-sync'" 
+        :class="{ active: currentView === 'order-sync' }"
+      >
+        📦 Sales Order Sync
+      </button>
       <button 
         @click="currentView = 'purchase-invoice-sync'" 
         :class="{ active: currentView === 'purchase-invoice-sync' }"
@@ -16,13 +29,10 @@
         📦 Purchase Invoice Sync
       </button>
       <button 
-        @click="currentView = 'return-sync'" 
-        :class="{ active: currentView === 'return-sync' }">↩️ Sales Return Sync</button>
-      <button 
-        @click="currentView = 'order-sync'" 
-        :class="{ active: currentView === 'order-sync' }"
+        @click="currentView = 'purchase-order-sync'" 
+        :class="{ active: currentView === 'purchase-order-sync' }"
       >
-        📦 Sales Order Sync
+        📝 Purchase Order Sync
       </button>
       <button 
         @click="currentView = 'customer-sync'" 
@@ -61,6 +71,7 @@
 
     <!-- Purchase Invoice Sync View -->
     <PurchaseInvoiceSync v-if="currentView === 'purchase-invoice-sync'" :branches="branches" />
+    <PurchaseOrderSync v-if="currentView === 'purchase-order-sync'" :branches="branches" />
     <!-- Sales Receipt Sync View -->
     <SalesReturnSync v-if="currentView === 'return-sync'" :branches="branches" />
 
@@ -205,6 +216,7 @@ import ItemTable from './components/ItemTable.vue'
 import ItemSync from './components/ItemSync.vue'
 import CustomerSync from './components/CustomerSync.vue'
 import SalesReturnSync from './components/SalesReturnSync.vue'
+import PurchaseOrderSync from './components/PurchaseOrderSync.vue'
 // import GoodsSync from './components/GoodsSync.vue'
 // import GoodsTable from './components/GoodsTable.vue'
 
@@ -220,6 +232,7 @@ export default {
     SalesOrderSync,
     ItemSync,
     SalesReturnSync,
+    PurchaseOrderSync,
     // GoodsSync,
     // GoodsTable
   },

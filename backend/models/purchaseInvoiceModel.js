@@ -1,129 +1,127 @@
-const db = require('../config/database');
+const { pool } = require('../config/database');
 
 const purchaseInvoiceModel = {
-  // Create invoice with items (transaction)
-  async create(invoiceData, items) {
-    const client = await db.getClient();
+  // Create or update purchase invoice with items
+  async create(headerData, items = []) {
+    const client = await pool.connect();
+    
     try {
       await client.query('BEGIN');
 
-      // Insert header
+      // Upsert header
       const headerQuery = `
         INSERT INTO purchase_invoices (
           invoice_id, invoice_number, branch_id, branch_name,
-          trans_date, created_date, vendor_no, vendor_name,
-          bill_number, age, warehouse_id, warehouse_name,
-          subtotal, discount, tax, total, 
-          status_name, created_by, raw_data
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
-        ON CONFLICT (invoice_id) 
+          trans_date, created_date,
+          vendor_no, vendor_name,
+          bill_number,
+          subtotal, discount, tax, total,
+          status_name,
+          created_by, opt_lock, raw_data
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+        ON CONFLICT (invoice_id, branch_id) 
         DO UPDATE SET
-          invoice_number = EXCLUDED.invoice_number,
+          invoice_id = EXCLUDED.invoice_id,
           trans_date = EXCLUDED.trans_date,
           created_date = EXCLUDED.created_date,
+          vendor_no = EXCLUDED.vendor_no,
           vendor_name = EXCLUDED.vendor_name,
           bill_number = EXCLUDED.bill_number,
-          age = EXCLUDED.age,
+          subtotal = EXCLUDED.subtotal,
+          discount = EXCLUDED.discount,
+          tax = EXCLUDED.tax,
           total = EXCLUDED.total,
           status_name = EXCLUDED.status_name,
+          created_by = EXCLUDED.created_by,
+          opt_lock = EXCLUDED.opt_lock,
           raw_data = EXCLUDED.raw_data,
           updated_at = CURRENT_TIMESTAMP
-        RETURNING id
+        RETURNING invoice_id;
       `;
 
       const headerValues = [
-        invoiceData.invoice_id,
-        invoiceData.invoice_number,
-        invoiceData.branch_id,
-        invoiceData.branch_name,
-        invoiceData.trans_date,
-        invoiceData.created_date,
-        invoiceData.vendor_no || null,
-        invoiceData.vendor_name || null,
-        invoiceData.bill_number || null,
-        invoiceData.age || null,
-        invoiceData.warehouse_id || null,
-        invoiceData.warehouse_name || null,
-        invoiceData.subtotal || 0,
-        invoiceData.discount || 0,
-        invoiceData.tax || 0,
-        invoiceData.total,
-        invoiceData.status_name || null,
-        invoiceData.created_by || null,
-        JSON.stringify(invoiceData.raw_data || {})
+        headerData.invoice_id,
+        headerData.invoice_number,
+        headerData.branch_id,
+        headerData.branch_name,
+        headerData.trans_date,
+        headerData.created_date,
+        headerData.vendor_no,
+        headerData.vendor_name,
+        headerData.bill_number,
+        headerData.subtotal,
+        headerData.discount,
+        headerData.tax,
+        headerData.total,
+        headerData.status_name,
+        headerData.created_by,
+        headerData.opt_lock || 0,
+        headerData.raw_data
       ];
 
       const headerResult = await client.query(headerQuery, headerValues);
-      const invoiceDbId = headerResult.rows[0].id;
+      const invoiceId = headerResult.rows[0].invoice_id;
 
-      // Delete existing items (for update case)
-      await client.query(
-        'DELETE FROM purchase_invoice_items WHERE invoice_id = $1',
-        [invoiceData.invoice_id] // Use invoice_id from Accurate
-      );
-
-      // Insert items
+      // Upsert items (no delete - allows partial updates)
       if (items && items.length > 0) {
         const itemQuery = `
           INSERT INTO purchase_invoice_items (
-            invoice_id, branch_id, item_no, item_name,
+            invoice_id, detail_id, branch_id, invoice_number, item_no, item_name,
             quantity, unit_name, unit_price, discount, amount,
             warehouse_name, item_category
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+
         `;
+                //   ON CONFLICT (invoice_id, detail_id)
+        // DO UPDATE SET
+        //   item_no = EXCLUDED.item_no,
+        //   item_name = EXCLUDED.item_name,
+        //   quantity = EXCLUDED.quantity,
+        //   unit_name = EXCLUDED.unit_name,
+        //   unit_price = EXCLUDED.unit_price,
+        //   discount = EXCLUDED.discount,
+        //   amount = EXCLUDED.amount,
+        //   warehouse_name = EXCLUDED.warehouse_name,
+        //   item_category = EXCLUDED.item_category
 
         for (const item of items) {
-          await client.query(itemQuery, [
-            invoiceData.invoice_id, // Use invoice_id from Accurate, not database id
-            invoiceData.branch_id,
+          const itemValues = [
+            invoiceId,
+            item.detail_id,
+            headerData.branch_id,
+            headerData.invoice_number,
             item.item_no,
             item.item_name,
             item.quantity,
             item.unit_name,
             item.unit_price,
-            item.discount || 0,
+            item.discount,
             item.amount,
-            item.warehouse_name || null,
-            item.item_category || null
-          ]);
+            item.warehouse_name,
+            item.item_category
+          ];
+
+          await client.query(itemQuery, itemValues);
         }
       }
 
       await client.query('COMMIT');
-      return invoiceDbId;
-    } catch (err) {
+      return { success: true, invoiceId };
+    } catch (error) {
       await client.query('ROLLBACK');
-      throw err;
+      throw error;
     } finally {
       client.release();
     }
   },
 
-  // Get invoice by ID with items
-  async getById(id) {
-    const invoiceQuery = 'SELECT * FROM purchase_invoices WHERE id = $1';
-    const itemsQuery = 'SELECT * FROM purchase_invoice_items WHERE invoice_id = $1 ORDER BY id';
-
-    const invoiceResult = await db.query(invoiceQuery, [id]);
-    const itemsResult = await db.query(itemsQuery, [id]);
-
-    if (invoiceResult.rows.length === 0) {
-      return null;
-    }
-
-    return {
-      ...invoiceResult.rows[0],
-      items: itemsResult.rows
-    };
-  },
-
-  // Get existing invoices for sync check (lightweight)
+  // Get existing invoices for sync comparison
   async getExistingForSync(branchId, dateFrom, dateTo) {
     const query = `
       SELECT 
         invoice_id,
         invoice_number,
-        raw_data->>'optLock' as opt_lock,
+        opt_lock,
         updated_at
       FROM purchase_invoices 
       WHERE branch_id = $1 
@@ -131,106 +129,108 @@ const purchaseInvoiceModel = {
       ORDER BY invoice_id
     `;
     
-    const result = await db.query(query, [branchId, dateFrom, dateTo]);
+    const result = await pool.query(query, [branchId, dateFrom, dateTo]);
     return result.rows;
   },
 
   // List invoices with filters
   async list(filters = {}) {
     let query = 'SELECT * FROM purchase_invoices WHERE 1=1';
-    const params = [];
+    const values = [];
     let paramCount = 1;
 
     if (filters.branch_id) {
-      query += ` AND branch_id = $${paramCount}`;
-      params.push(filters.branch_id);
-      paramCount++;
+      query += ` AND branch_id = $${paramCount++}`;
+      values.push(filters.branch_id);
     }
 
     if (filters.date_from) {
-      query += ` AND trans_date >= $${paramCount}`;
-      params.push(filters.date_from);
-      paramCount++;
+      query += ` AND trans_date >= $${paramCount++}`;
+      values.push(filters.date_from);
     }
 
     if (filters.date_to) {
-      query += ` AND trans_date <= $${paramCount}`;
-      params.push(filters.date_to);
-      paramCount++;
+      query += ` AND trans_date <= $${paramCount++}`;
+      values.push(filters.date_to);
     }
 
-    if (filters.vendor_no) {
-      query += ` AND vendor_no = $${paramCount}`;
-      params.push(filters.vendor_no);
-      paramCount++;
+    if (filters.vendor_id) {
+      query += ` AND vendor_id = $${paramCount++}`;
+      values.push(filters.vendor_id);
     }
 
-    // Sorting
-    query += ' ORDER BY trans_date DESC, id DESC';
+    if (filters.status_name) {
+      query += ` AND status_name = $${paramCount++}`;
+      values.push(filters.status_name);
+    }
 
-    // Pagination
+    query += ' ORDER BY trans_date DESC, invoice_number DESC';
+
     if (filters.limit) {
-      query += ` LIMIT $${paramCount}`;
-      params.push(filters.limit);
-      paramCount++;
+      query += ` LIMIT $${paramCount++}`;
+      values.push(filters.limit);
     }
 
     if (filters.offset) {
-      query += ` OFFSET $${paramCount}`;
-      params.push(filters.offset);
-      paramCount++;
+      query += ` OFFSET $${paramCount++}`;
+      values.push(filters.offset);
     }
 
-    const result = await db.query(query, params);
+    const result = await pool.query(query, values);
     return result.rows;
+  },
+
+  // Get invoice by ID with items
+  async getById(id) {
+    const headerQuery = 'SELECT * FROM purchase_invoices WHERE id = $1';
+    const headerResult = await pool.query(headerQuery, [id]);
+
+    if (headerResult.rows.length === 0) {
+      return null;
+    }
+
+    const invoice = headerResult.rows[0];
+    const itemsQuery = 'SELECT * FROM purchase_invoice_items WHERE invoice_id = $1 ORDER BY id';
+    const itemsResult = await pool.query(itemsQuery, [invoice.invoice_id]);
+
+    return {
+      ...invoice,
+      items: itemsResult.rows
+    };
   },
 
   // Get summary statistics
   async getSummary(filters = {}) {
     let query = `
       SELECT 
-        branch_id,
-        branch_name,
-        COUNT(*) as invoice_count,
-        SUM(total) as total_purchases,
-        AVG(total) as avg_invoice,
-        MIN(trans_date) as first_date,
-        MAX(trans_date) as last_date
+        COUNT(*) as total_invoices,
+        COUNT(DISTINCT vendor_id) as total_vendors,
+        SUM(total_amount) as total_amount,
+        AVG(total_amount) as avg_amount,
+        MAX(trans_date) as latest_date
       FROM purchase_invoices
       WHERE 1=1
     `;
-    const params = [];
+    const values = [];
     let paramCount = 1;
 
     if (filters.branch_id) {
-      query += ` AND branch_id = $${paramCount}`;
-      params.push(filters.branch_id);
-      paramCount++;
+      query += ` AND branch_id = $${paramCount++}`;
+      values.push(filters.branch_id);
     }
 
     if (filters.date_from) {
-      query += ` AND trans_date >= $${paramCount}`;
-      params.push(filters.date_from);
-      paramCount++;
+      query += ` AND trans_date >= $${paramCount++}`;
+      values.push(filters.date_from);
     }
 
     if (filters.date_to) {
-      query += ` AND trans_date <= $${paramCount}`;
-      params.push(filters.date_to);
-      paramCount++;
+      query += ` AND trans_date <= $${paramCount++}`;
+      values.push(filters.date_to);
     }
 
-    query += ' GROUP BY branch_id, branch_name ORDER BY branch_id';
-
-    const result = await db.query(query, params);
-    return result.rows;
-  },
-
-  // Delete invoice
-  async delete(id) {
-    const query = 'DELETE FROM purchase_invoices WHERE id = $1 RETURNING id';
-    const result = await db.query(query, [id]);
-    return result.rows.length > 0;
+    const result = await pool.query(query, values);
+    return result.rows[0];
   }
 };
 

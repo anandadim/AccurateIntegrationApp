@@ -8,28 +8,28 @@ CREATE TABLE IF NOT EXISTS purchase_invoices (
   
   -- Dates
   trans_date DATE,
-  created_date DATE,
+  invoice_date DATE,
+  due_date DATE,
   
   -- Vendor/Supplier
-  vendor_no VARCHAR(50),
+  vendor_id VARCHAR(50),
   vendor_name VARCHAR(255),
   
   -- Bill Info
   bill_number VARCHAR(50),
-  age INTEGER,
-  
-  -- Warehouse
-  warehouse_id VARCHAR(50),
-  warehouse_name VARCHAR(255),
   
   -- Amounts
   subtotal DECIMAL(15,2) DEFAULT 0,
-  discount DECIMAL(15,2) DEFAULT 0,
-  tax DECIMAL(15,2) DEFAULT 0,
-  total DECIMAL(15,2) DEFAULT 0,
+  tax_amount DECIMAL(15,2) DEFAULT 0,
+  total_amount DECIMAL(15,2) DEFAULT 0,
+  prime_owing DECIMAL(15,2) DEFAULT 0,
   
   -- Status
   status_name VARCHAR(50),
+  
+  -- AP Account
+  ap_account_id VARCHAR(50),
+  ap_account_no VARCHAR(50),
   
   -- User Info
   created_by VARCHAR(255),
@@ -45,9 +45,9 @@ CREATE TABLE IF NOT EXISTS purchase_invoices (
 CREATE TABLE IF NOT EXISTS purchase_invoice_items (
   id SERIAL PRIMARY KEY,
   invoice_id BIGINT NOT NULL,
-  branch_id VARCHAR(50),
   
   -- Item info
+  item_id VARCHAR(50),
   item_no VARCHAR(50),
   item_name VARCHAR(255),
   
@@ -58,8 +58,15 @@ CREATE TABLE IF NOT EXISTS purchase_invoice_items (
   discount DECIMAL(15,2) DEFAULT 0,
   amount DECIMAL(15,2) DEFAULT 0,
   
-  -- Additional
+  -- Warehouse
+  warehouse_id VARCHAR(50),
   warehouse_name VARCHAR(255),
+  
+  -- GL Accounts
+  gl_inventory_id VARCHAR(50),
+  gl_cogs_id VARCHAR(50),
+  
+  -- Additional
   item_category VARCHAR(100),
   
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -70,7 +77,7 @@ CREATE TABLE IF NOT EXISTS purchase_invoice_items (
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_purchase_invoices_branch ON purchase_invoices(branch_id);
 CREATE INDEX IF NOT EXISTS idx_purchase_invoices_date ON purchase_invoices(trans_date);
-CREATE INDEX IF NOT EXISTS idx_purchase_invoices_vendor ON purchase_invoices(vendor_no);
+CREATE INDEX IF NOT EXISTS idx_purchase_invoices_vendor ON purchase_invoices(vendor_id);
 CREATE INDEX IF NOT EXISTS idx_purchase_invoices_status ON purchase_invoices(status_name);
 CREATE INDEX IF NOT EXISTS idx_purchase_invoices_number ON purchase_invoices(invoice_number);
 CREATE INDEX IF NOT EXISTS idx_purchase_invoice_items_invoice ON purchase_invoice_items(invoice_id);

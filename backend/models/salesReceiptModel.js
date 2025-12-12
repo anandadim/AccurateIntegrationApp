@@ -68,7 +68,7 @@ const salesReceiptModel = {
       const dbHeaderId = headerResult.rows[0].id;
 
       // Delete previous items for this receipt (if any)
-      await client.query('DELETE FROM sales_receipt_items WHERE receipt_id = $1', [receiptData.receipt_id]);
+      //await client.query('DELETE FROM sales_receipt_items WHERE receipt_id = $1', [receiptData.receipt_id]);
 
       // Insert items
       if (items && items.length > 0) {
