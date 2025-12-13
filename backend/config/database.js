@@ -698,6 +698,30 @@ const initialize = async () => {
       END $$;
     `);
 
+    // Create sales_invoice_relations table (SI ↔ SO ↔ SR mapping)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS sales_invoice_relations (
+        id SERIAL PRIMARY KEY,
+        branch_id VARCHAR(50) NOT NULL,
+        branch_name VARCHAR(100),
+        order_number VARCHAR(50),
+        order_id BIGINT,
+        invoice_number VARCHAR(50),
+        invoice_id BIGINT,
+        trans_date DATE,
+        sales_receipt VARCHAR(100) NOT NULL,
+        receipt_date DATE,
+        payment_id VARCHAR(50),
+        payment_name VARCHAR(100),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(branch_id, sales_receipt)
+      )
+    `);
+
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_relations_branch ON sales_invoice_relations(branch_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_relations_invoice ON sales_invoice_relations(invoice_id)`);
+
     // Table untuk cache data (backward compatibility)
     await client.query(`
       CREATE TABLE IF NOT EXISTS accurate_data (

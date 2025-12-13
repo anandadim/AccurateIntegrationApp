@@ -68,6 +68,15 @@ async function routes(fastify, options) {
   
   // Smart sync: Only sync new + updated invoices
   fastify.post('/sales-invoices/sync-smart', salesInvoiceController.syncSmart);
+
+  // Check relations status (new/updated/unchanged)
+  fastify.get('/sales-invoices/check-relations-status', salesInvoiceController.checkRelationsStatus);
+
+  // Extract relations from existing raw_data in database
+  fastify.post('/sales-invoices/extract-relations', salesInvoiceController.extractRelationsFromDB);
+
+  // Get sales invoice relations from database
+  fastify.get('/sales-invoice-relations', salesInvoiceController.getRelations);
   
   // Get sales invoices from database
   fastify.get('/sales-invoices', salesInvoiceController.getInvoices);

@@ -1,5 +1,7 @@
+const db = require('../config/database');
 const accurateService = require('../services/accurateService');
 const salesInvoiceModel = require('../models/salesInvoiceModel');
+const salesInvoiceRelationsModel = require('../models/salesInvoiceRelationsModel');
 
 // Helper: Create date filter for Accurate API
 // Format: filter.{field}.val as array [fromDate, toDate]
@@ -467,6 +469,28 @@ const salesInvoiceController = {
         }));
 
         await salesInvoiceModel.create(headerData, items);
+
+        // Build relations data (one per receipt history entry)
+        const relations = [];
+        const receiptHist = invoiceData.receiptHistory || [];
+        for (const rh of receiptHist) {
+          relations.push({
+            branch_id: branchId,
+            branch_name: branchName,
+            order_number: (invoiceData.detailItem?.[0]?.salesOrder?.number) || null,
+            order_id: (invoiceData.detailItem?.[0]?.salesOrderId) || null,
+            invoice_number: invoiceData.number,
+            invoice_id: invoiceData.id,
+            trans_date: convertDate(invoiceData.transDate),
+            sales_receipt: rh.historyNumber,
+            receipt_date: convertDate(rh.historyDate),
+            payment_id: rh.historyPaymentId,
+            payment_name: rh.historyPaymentName
+          });
+        }
+        if (relations.length) {
+          await salesInvoiceRelationsModel.bulkUpsert(relations);
+        }
         savedCount++;
         
         // Progress indicator every 10 invoices
@@ -507,6 +531,10 @@ const salesInvoiceController = {
         batchDelay = 300,
         mode = 'missing' // 'missing' or 'all'
       } = request.query;
+
+      // Convert to numbers
+      const parsedBatchSize = parseInt(batchSize) || 50;
+      const parsedBatchDelay = parseInt(batchDelay) || 300;
 
       if (!branchId) {
         return reply.code(400).send({ error: 'branchId is required' });
@@ -664,7 +692,7 @@ const salesInvoiceController = {
       let savedCount = 0;
       let errorCount = 0;
       let fetchErrorCount = 0;
-      const totalBatches = Math.ceil(invoiceIdsToSync.length / batchSize);
+      const totalBatches = Math.ceil(invoiceIdsToSync.length / parsedBatchSize);
 
       // Helper: Fetch with retry for transient errors
       const fetchWithRetry = async (id, maxRetries = 2) => {
@@ -705,9 +733,9 @@ const salesInvoiceController = {
         return { error: true, id: id, message: 'Max retries exceeded' };
       };
 
-      for (let i = 0; i < invoiceIdsToSync.length; i += batchSize) {
-        const batch = invoiceIdsToSync.slice(i, i + batchSize);
-        const batchNum = Math.floor(i / batchSize) + 1;
+      for (let i = 0; i < invoiceIdsToSync.length; i += parsedBatchSize) {
+        const batch = invoiceIdsToSync.slice(i, i + parsedBatchSize);
+        const batchNum = Math.floor(i / parsedBatchSize) + 1;
         
         console.log(`📦 Batch ${batchNum}/${totalBatches} (${batch.length} items)`);
         console.log(`   ├─ Fetching details with retry...`);
@@ -737,8 +765,8 @@ const salesInvoiceController = {
         }
         
         // Delay between batches
-        if (i + batchSize < invoiceIdsToSync.length) {
-          await new Promise(resolve => setTimeout(resolve, batchDelay));
+        if (i + parsedBatchSize < invoiceIdsToSync.length) {
+          await new Promise(resolve => setTimeout(resolve, parsedBatchDelay));
         }
       }
 
@@ -872,6 +900,298 @@ const salesInvoiceController = {
         message: error.message 
       });
     }
+  },
+
+  // Check relations status (new/updated/unchanged)
+  async checkRelationsStatus(request, reply) {
+    const startTime = Date.now();
+    
+    try {
+      const { branchId, dateFrom, dateTo } = request.query;
+
+      if (!branchId) {
+        return reply.code(400).send({ error: 'branchId is required' });
+      }
+
+      const branches = accurateService.getBranches();
+      const branch = branches.find(b => b.id === branchId);
+      
+      if (!branch) {
+        return reply.code(404).send({ error: 'Branch not found' });
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+
+      // Query invoices with receiptHistory from raw_data
+      const query = `
+        SELECT 
+          id,
+          invoice_id,
+          invoice_number,
+          branch_id,
+          branch_name,
+          trans_date,
+          raw_data
+        FROM sales_invoices
+        WHERE branch_id = $1
+          AND trans_date BETWEEN $2 AND $3
+          AND raw_data->'receiptHistory' IS NOT NULL
+          AND raw_data->'receiptHistory' != '[]'::jsonb
+        ORDER BY trans_date DESC
+      `;
+
+      const result = await db.query(query, [branchId, dateFrom || today, dateTo || today]);
+      const invoices = result.rows;
+
+      // Extract relations from raw_data
+      const incomingRelations = [];
+      
+      for (const invoice of invoices) {
+        const rawData = invoice.raw_data;
+        const receiptHistory = rawData.receiptHistory || [];
+
+        if (receiptHistory.length === 0) continue;
+
+        const soNumber = rawData.detailItem?.[0]?.salesOrder?.number || null;
+        const soId = rawData.detailItem?.[0]?.salesOrderId || null;
+
+        for (const rh of receiptHistory) {
+          const convertDate = (dateStr) => {
+            if (!dateStr) return null;
+            const [day, month, year] = dateStr.split('/');
+            return `${year}-${month}-${day}`;
+          };
+
+          incomingRelations.push({
+            branch_id: branchId,
+            branch_name: branch.name,
+            order_number: soNumber,
+            order_id: soId,
+            invoice_number: invoice.invoice_number,
+            invoice_id: invoice.invoice_id,
+            trans_date: invoice.trans_date,
+            sales_receipt: rh.historyNumber,
+            receipt_date: convertDate(rh.historyDate),
+            payment_id: rh.historyPaymentId,
+            payment_name: rh.historyPaymentName
+          });
+        }
+      }
+
+      // Check status
+      const statusResult = await salesInvoiceRelationsModel.checkStatus(
+        incomingRelations,
+        branchId,
+        dateFrom || today,
+        dateTo || today
+      );
+
+      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+
+      return reply.send({
+        success: true,
+        summary: statusResult.summary,
+        invoices: {
+          new: statusResult.new.slice(0, 20),
+          updated: statusResult.updated.slice(0, 20),
+          unchanged: statusResult.unchanged.slice(0, 20),
+          hasMore: {
+            new: statusResult.new.length > 20,
+            updated: statusResult.updated.length > 20,
+            unchanged: statusResult.unchanged.length > 20
+          }
+        },
+        duration: `${duration}s`
+      });
+    } catch (error) {
+      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+      console.error(`\n❌ CHECK RELATIONS STATUS FAILED after ${duration}s:`, error.message);
+      return reply.code(500).send({ 
+        error: 'Internal server error',
+        message: error.message 
+      });
+    }
+  },
+
+  // Extract relations from existing raw_data in database
+  async extractRelationsFromDB(request, reply) {
+    const startTime = Date.now();
+    
+    try {
+      const { branchId, dateFrom, dateTo } = request.query;
+
+      if (!branchId) {
+        return reply.code(400).send({ error: 'branchId is required' });
+      }
+
+      const branches = accurateService.getBranches();
+      const branch = branches.find(b => b.id === branchId);
+      
+      if (!branch) {
+        return reply.code(404).send({ error: 'Branch not found' });
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+      console.log(`\n${'='.repeat(60)}`);
+      console.log(`🔄 EXTRACT RELATIONS STARTED: ${branch.name}`);
+      console.log(`📅 Date Range: ${dateFrom || today} to ${dateTo || today}`);
+      console.log(`${'='.repeat(60)}\n`);
+
+      // 1. Query invoices with receiptHistory from raw_data
+      const query = `
+        SELECT 
+          id,
+          invoice_id,
+          invoice_number,
+          branch_id,
+          branch_name,
+          trans_date,
+          raw_data
+        FROM sales_invoices
+        WHERE branch_id = $1
+          AND trans_date BETWEEN $2 AND $3
+          AND raw_data->'receiptHistory' IS NOT NULL
+          AND raw_data->'receiptHistory' != '[]'::jsonb
+        ORDER BY trans_date DESC
+      `;
+
+      const result = await db.query(query, [branchId, dateFrom || today, dateTo || today]);
+      const invoices = result.rows;
+
+      console.log(`📊 Found ${invoices.length} invoices with receipt history`);
+
+      if (invoices.length === 0) {
+        const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+        return reply.send({
+          success: true,
+          message: 'No invoices with receipt history found',
+          summary: {
+            branch: branch.name,
+            dateRange: { from: dateFrom || today, to: dateTo || today },
+            extracted: 0,
+            duration: `${duration}s`
+          }
+        });
+      }
+
+      // 2. Extract relations from raw_data
+      let totalRelations = 0;
+      let extractedCount = 0;
+      let errorCount = 0;
+
+      for (const invoice of invoices) {
+        try {
+          const rawData = invoice.raw_data;
+          const receiptHistory = rawData.receiptHistory || [];
+
+          if (receiptHistory.length === 0) continue;
+
+          const relations = [];
+          const soNumber = rawData.detailItem?.[0]?.salesOrder?.number || null;
+          const soId = rawData.detailItem?.[0]?.salesOrderId || null;
+
+          for (const rh of receiptHistory) {
+            const convertDate = (dateStr) => {
+              if (!dateStr) return null;
+              const [day, month, year] = dateStr.split('/');
+              return `${year}-${month}-${day}`;
+            };
+
+            relations.push({
+              branch_id: branchId,
+              branch_name: branch.name,
+              order_number: soNumber,
+              order_id: soId,
+              invoice_number: invoice.invoice_number,
+              invoice_id: invoice.invoice_id,
+              trans_date: invoice.trans_date,
+              sales_receipt: rh.historyNumber,
+              receipt_date: convertDate(rh.historyDate),
+              payment_id: rh.historyPaymentId,
+              payment_name: rh.historyPaymentName
+            });
+          }
+
+          if (relations.length > 0) {
+            await salesInvoiceRelationsModel.bulkUpsert(relations);
+            totalRelations += relations.length;
+            extractedCount++;
+          }
+
+          if (extractedCount % 10 === 0) {
+            process.stdout.write(`💾 Processed: ${extractedCount}/${invoices.length}\r`);
+          }
+        } catch (err) {
+          console.error(`❌ Error extracting relations for invoice ${invoice.invoice_number}:`, err.message);
+          errorCount++;
+        }
+      }
+
+      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+
+      console.log(`\n${'='.repeat(60)}`);
+      console.log(`✅ EXTRACT RELATIONS COMPLETED: ${branch.name}`);
+      console.log(`⏱️  Duration: ${duration}s`);
+      console.log(`📊 Results:`);
+      console.log(`   - Invoices Processed: ${extractedCount}`);
+      console.log(`   - Relations Extracted: ${totalRelations}`);
+      console.log(`   - Errors: ${errorCount}`);
+      console.log(`${'='.repeat(60)}\n`);
+
+      return reply.send({
+        success: true,
+        message: `Extracted ${totalRelations} relations from ${extractedCount} invoices`,
+        summary: {
+          branch: branch.name,
+          dateRange: { from: dateFrom || today, to: dateTo || today },
+          invoicesProcessed: extractedCount,
+          relationsExtracted: totalRelations,
+          errors: errorCount,
+          duration: `${duration}s`
+        }
+      });
+    } catch (error) {
+      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+      console.error(`\n❌ EXTRACT RELATIONS FAILED after ${duration}s:`, error.message);
+      return reply.code(500).send({ 
+        error: 'Internal server error',
+        message: error.message 
+      });
+    }
+  },
+
+  // Get relations from database
+  async getRelations(request, reply) {
+    try {
+      const { branchId, dateFrom, dateTo, limit = 1000, offset = 0 } = request.query;
+
+      const filters = {
+        branch_id: branchId,
+        date_from: dateFrom,
+        date_to: dateTo
+      };
+
+      const relations = await salesInvoiceRelationsModel.list(filters);
+
+      return reply.send({
+        success: true,
+        count: relations.length,
+        data: relations
+      });
+    } catch (error) {
+      console.error('Error in getRelations:', error);
+      return reply.code(500).send({ 
+        error: 'Internal server error',
+        message: error.message 
+      });
+    }
+  },
+
+  // Helper: Convert date format DD/MM/YYYY to YYYY-MM-DD
+  _convertDate(dateStr) {
+    if (!dateStr) return null;
+    const [day, month, year] = dateStr.split('/');
+    return `${year}-${month}-${day}`;
   }
 };
 
