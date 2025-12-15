@@ -165,9 +165,131 @@
           📅 Sync Per Month
         </button>
       </div>
+    </div>
 
-      <!-- Sync Progress -->
-      <div v-if="syncing" class="progress-box">
+    <!-- Extract Relations -->
+    <div class="card" v-if="selectedBranch">
+      <h3>4. Extract Relations (SI-SO-SR)</h3>
+      <p class="hint">Extract relations from existing database records (raw_data)</p>
+      
+      <div class="button-group">
+        <button 
+          @click="checkRelationsStatus" 
+          :disabled="checkingRelations" 
+          class="btn btn-info"
+        >
+          {{ checkingRelations ? '⏳ Checking...' : '🔍 Check Relations Status' }}
+        </button>
+        
+        <button 
+          @click="extractRelations" 
+          :disabled="extracting" 
+          class="btn btn-primary"
+        >
+          {{ extracting ? '⏳ Extracting...' : '🔗 Extract Relations' }}
+        </button>
+      </div>
+
+      <!-- Check Relations Status Result -->
+      <div v-if="checkRelationsResult" class="result-box">
+        <h4>📊 Relations Status:</h4>
+        
+        <div class="sync-status-grid">
+          <div class="status-card new">
+            <div class="status-icon">🆕</div>
+            <div class="status-content">
+              <div class="status-label">New</div>
+              <div class="status-value">{{ checkRelationsResult.summary.new }}</div>
+            </div>
+          </div>
+          
+          <div class="status-card updated">
+            <div class="status-icon">🔄</div>
+            <div class="status-content">
+              <div class="status-label">Updated</div>
+              <div class="status-value">{{ checkRelationsResult.summary.updated }}</div>
+            </div>
+          </div>
+          
+          <div class="status-card unchanged">
+            <div class="status-icon">✅</div>
+            <div class="status-content">
+              <div class="status-label">Unchanged</div>
+              <div class="status-value">{{ checkRelationsResult.summary.unchanged }}</div>
+            </div>
+          </div>
+          
+          <div class="status-card total">
+            <div class="status-icon">📊</div>
+            <div class="status-content">
+              <div class="status-label">Total</div>
+              <div class="status-value">{{ checkRelationsResult.summary.total }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- New Relations List -->
+        <div v-if="checkRelationsResult.invoices.new.length > 0" class="invoice-list">
+          <h5>🆕 New Relations ({{ checkRelationsResult.summary.new }}):</h5>
+          <div class="invoice-chips">
+            <span v-for="rel in checkRelationsResult.invoices.new" :key="rel.sales_receipt" class="invoice-chip">
+              {{ rel.invoice_number }} - {{ rel.sales_receipt }}
+            </span>
+            <span v-if="checkRelationsResult.invoices.hasMore.new" class="more-chip">
+              +{{ checkRelationsResult.summary.new - checkRelationsResult.invoices.new.length }} more
+            </span>
+          </div>
+        </div>
+
+        <!-- Updated Relations List -->
+        <div v-if="checkRelationsResult.invoices.updated.length > 0" class="invoice-list">
+          <h5>🔄 Updated Relations ({{ checkRelationsResult.summary.updated }}):</h5>
+          <div class="invoice-chips">
+            <span v-for="rel in checkRelationsResult.invoices.updated" :key="rel.sales_receipt" class="invoice-chip">
+              {{ rel.invoice_number }} - {{ rel.sales_receipt }}
+            </span>
+            <span v-if="checkRelationsResult.invoices.hasMore.updated" class="more-chip">
+              +{{ checkRelationsResult.summary.updated - checkRelationsResult.invoices.updated.length }} more
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Extract Progress -->
+      <div v-if="extracting" class="progress-box">
+        <div class="progress-header">
+          <span>⏳ Extracting in progress...</span>
+        </div>
+        <p class="progress-text">{{ extractStatus }}</p>
+      </div>
+
+      <!-- Extract Result -->
+      <div v-if="extractResult" class="result-box success">
+        <h4>✅ Extract Completed!</h4>
+        <div class="result-grid">
+          <div class="result-item">
+            <span class="label">Invoices Processed:</span>
+            <span class="value success-text">{{ extractResult.summary.invoicesProcessed }}</span>
+          </div>
+          <div class="result-item">
+            <span class="label">Relations Extracted:</span>
+            <span class="value success-text">{{ extractResult.summary.relationsExtracted }}</span>
+          </div>
+          <div class="result-item">
+            <span class="label">Errors:</span>
+            <span class="value error-text">{{ extractResult.summary.errors }}</span>
+          </div>
+          <div class="result-item">
+            <span class="label">Duration:</span>
+            <span class="value">{{ extractResult.summary.duration }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sync Progress (moved from Extract section) -->
+    <div class="card" v-if="selectedBranch && syncing">
+      <div class="progress-box">
         <div class="progress-header">
           <span>⏳ Syncing in progress...</span>
           <span>{{ syncProgress }}%</span>
@@ -177,9 +299,11 @@
         </div>
         <p class="progress-text">{{ syncStatus }}</p>
       </div>
+    </div>
 
-      <!-- Sync Result -->
-      <div v-if="syncResult" class="result-box success">
+    <!-- Sync Result (moved from Extract section) -->
+    <div class="card" v-if="selectedBranch && syncResult">
+      <div class="result-box success">
         <h4>✅ Sync Completed!</h4>
         <div class="result-grid">
           <div class="result-item">
@@ -255,10 +379,15 @@ export default {
     const checking = ref(false)
     const syncing = ref(false)
     const reloading = ref(false)
+    const extracting = ref(false)
+    const checkingRelations = ref(false)
     const checkResult = ref(null)
     const syncResult = ref(null)
+    const extractResult = ref(null)
+    const checkRelationsResult = ref(null)
     const syncProgress = ref(0)
     const syncStatus = ref('')
+    const extractStatus = ref('')
     const error = ref('')
     const showMonthlyHelper = ref(false)
 
@@ -455,6 +584,83 @@ export default {
       }
     }
 
+    const checkRelationsStatus = async () => {
+      if (!selectedBranch.value) {
+        error.value = 'Pilih cabang terlebih dahulu'
+        return
+      }
+
+      checkingRelations.value = true
+      error.value = ''
+      checkRelationsResult.value = null
+
+      try {
+        const params = new URLSearchParams({
+          branchId: selectedBranch.value,
+          dateFrom: dateFrom.value,
+          dateTo: dateTo.value
+        })
+
+        const response = await fetch(`/api/sales-invoices/check-relations-status?${params}`)
+        const data = await response.json()
+
+        if (response.ok && data.success) {
+          checkRelationsResult.value = data
+        } else {
+          error.value = `❌ ${data.error || 'Failed to check relations status'}`
+        }
+      } catch (err) {
+        error.value = `❌ Error: ${err.message}`
+        console.error('Check relations error:', err)
+      } finally {
+        checkingRelations.value = false
+      }
+    }
+
+    const extractRelations = async () => {
+      if (!selectedBranch.value) {
+        error.value = 'Pilih cabang terlebih dahulu'
+        return
+      }
+
+      extracting.value = true
+      extractStatus.value = 'Memproses...'
+      error.value = ''
+      extractResult.value = null
+
+      try {
+        const params = new URLSearchParams({
+          branchId: selectedBranch.value,
+          dateFrom: dateFrom.value,
+          dateTo: dateTo.value
+        })
+
+        const response = await fetch(`/api/sales-invoices/extract-relations?${params}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({})
+        })
+
+        const data = await response.json()
+
+        if (response.ok && data.success) {
+          extractResult.value = data
+          extractStatus.value = `✅ ${data.message}`
+          // Refresh check relations status
+          await checkRelationsStatus()
+        } else {
+          error.value = `❌ ${data.error || 'Failed to extract relations'}`
+        }
+      } catch (err) {
+        error.value = `❌ Error: ${err.message}`
+        console.error('Extract error:', err)
+      } finally {
+        extracting.value = false
+      }
+    }
+
     return {
       selectedBranch,
       dateFrom,
@@ -466,10 +672,15 @@ export default {
       checking,
       syncing,
       reloading,
+      extracting,
+      checkingRelations,
       checkResult,
       syncResult,
+      extractResult,
+      checkRelationsResult,
       syncProgress,
       syncStatus,
+      extractStatus,
       error,
       showMonthlyHelper,
       monthList,
@@ -482,7 +693,9 @@ export default {
       syncSmart,
       syncByMonth,
       syncMonth,
-      syncAllMonths
+      syncAllMonths,
+      checkRelationsStatus,
+      extractRelations
     }
   }
 }

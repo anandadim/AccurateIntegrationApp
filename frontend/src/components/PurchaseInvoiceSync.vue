@@ -93,6 +93,11 @@
             ✅ All data is up-to-date! No sync needed.
           </p>
         </div>
+        <div class="sync-recommendation">
+          <p v-if="checkResult.recommendationRelation > 0" class="need-sync">
+            ⚠️ Need to sync: <strong>{{ checkResult.summary.needSyncRelation }}</strong> relation
+          </p>
+        </div>
 
         <!-- Invoice Lists -->
         <div v-if="checkResult.invoices.new.length > 0" class="invoice-list">
