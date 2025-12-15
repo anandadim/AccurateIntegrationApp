@@ -262,7 +262,7 @@ const salesOrderController = {
     const startTime = Date.now();
     
     try {
-      const { 
+      let {
         branchId, 
         dateFrom, 
         dateTo, 
@@ -271,6 +271,10 @@ const salesOrderController = {
         batchDelay = 500,
         mode = 'missing'
       } = request.query;
+
+      // Ensure numeric values (query params are strings)
+      batchSize = parseInt(batchSize, 10) || 20;
+      batchDelay = parseInt(batchDelay, 10) || 500;
 
       if (!branchId) {
         return reply.code(400).send({ error: 'branchId is required' });
@@ -377,11 +381,11 @@ const salesOrderController = {
       }
 
       // 3. Fetch details and save (in batches with retry)
+      const totalBatches = Math.ceil(orderIdsToSync.length / batchSize);
       let savedCount = 0;
       let errorCount = 0;
       let fetchErrorCount = 0;
-      const totalBatches = Math.ceil(orderIdsToSync.length / batchSize);
-
+      
       // Helper: Fetch with retry
       const fetchWithRetry = async (id, maxRetries = 2) => {
         for (let attempt = 1; attempt <= maxRetries; attempt++) {

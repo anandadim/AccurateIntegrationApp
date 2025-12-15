@@ -10,18 +10,19 @@ const salesReturnModel = {
       // Insert / update header
       const headerQuery = `
         INSERT INTO sales_returns (
-          sales_return_id, return_number, branch_id, branch_name,
-          trans_date, invoice_id, invoice_number, return_type,
+          sales_return_id, return_number, branch_id, 
+          branch_name,trans_date, invoice_id, 
+          invoice_number, return_type,
           return_amount, sub_total, cash_discount,
-          description, approval_status, customer_id, po_number,
-          master_salesman_id, salesman_name, currency_code,
-          journal_id, created_by, raw_data
+          description, approval_status, customer_id,
+          po_number, master_salesman_id, salesman_name, 
+          currency_code, journal_id, created_by, raw_data
         ) VALUES (
           $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21
         )
-        ON CONFLICT (return_number, branch_id)
+        ON CONFLICT (sales_return_id, branch_id)
         DO UPDATE SET
-          sales_return_id     = EXCLUDED.sales_return_id,
+          return_number     = EXCLUDED.return_number,
           invoice_id          = EXCLUDED.invoice_id,
           invoice_number      = EXCLUDED.invoice_number,
           return_type         = EXCLUDED.return_type,
@@ -74,19 +75,39 @@ const salesReturnModel = {
       if (items && items.length > 0) {
         const itemQuery = `
           INSERT INTO sales_return_items (
-            sales_return_id, branch_id,
+            sales_return_id, branch_id, seq,
             item_id, item_no, item_name, quantity, unit_name,
             unit_price, return_amount,
             cogs_gl_account_id, warehouse_id, warehouse_name, cost_item,
             sales_invoice_detail_id, invoice_detail_quantity, sales_order_id, return_detail_status
           ) VALUES (
-            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17
-          )`;
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
+          )
+            ON CONFLICT (sales_return_id, branch_id,seq)
+            DO UPDATE SET
+              item_id = EXCLUDED.item_id, 
+              item_no  = EXCLUDED.item_no, 
+              item_name  = EXCLUDED.item_name, 
+              quantity  = EXCLUDED.quantity, 
+              unit_name = EXCLUDED.unit_name,
+              unit_price = EXCLUDED.unit_price, 
+              return_amount = EXCLUDED.return_amount,
+              cogs_gl_account_id = EXCLUDED.cogs_gl_account_id, 
+              warehouse_id = EXCLUDED.warehouse_id, 
+              warehouse_name = EXCLUDED.warehouse_name, 
+              cost_item = EXCLUDED.cost_item,
+              sales_invoice_detail_id = EXCLUDED.sales_invoice_detail_id, 
+              invoice_detail_quantity = EXCLUDED.invoice_detail_quantity, 
+              sales_order_id = EXCLUDED.sales_order_id, 
+              return_detail_status  = EXCLUDED.return_detail_status           
+
+      `;
 
         for (const item of items) {
          const itemValues = [
             returnData.sales_return_id,
             returnData.branch_id,
+            item.seq || 0, // Add seq parameter with default value
             item.item_id,
             item.item_no,
             item.item_name,
