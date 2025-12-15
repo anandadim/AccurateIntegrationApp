@@ -109,6 +109,37 @@ const initialize = async () => {
       ON sales_invoices(invoice_number)
     `);
 
+    // Table untuk sales invoice items (detail)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS sales_invoice_items (
+        id SERIAL PRIMARY KEY,
+        invoice_id INTEGER NOT NULL,
+        branch_id VARCHAR(50) NOT NULL,
+        item_no VARCHAR(100) NOT NULL,
+        item_name TEXT,
+        item_category VARCHAR(100),
+        warehouse_name VARCHAR(100),
+        salesman_name VARCHAR(100),
+        quantity DECIMAL(15,2) NOT NULL,
+        unit_name VARCHAR(50),
+        unit_price DECIMAL(15,2) NOT NULL,
+        discount DECIMAL(15,2) DEFAULT 0,
+        amount DECIMAL(15,2) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (invoice_id) REFERENCES sales_invoices(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_invoice_items 
+      ON sales_invoice_items(invoice_id)
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_item_no 
+      ON sales_invoice_items(item_no)
+    `);
+
     // Add warehouse_name column to sales_invoice_items if it doesn't exist
     await client.query(`
       DO $$
@@ -143,37 +174,6 @@ const initialize = async () => {
           ADD COLUMN item_category VARCHAR(100);
         END IF;
       END $$;
-    `);
-
-    // Table untuk sales invoice items (detail)
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS sales_invoice_items (
-        id SERIAL PRIMARY KEY,
-        invoice_id INTEGER NOT NULL,
-        branch_id VARCHAR(50) NOT NULL,
-        item_no VARCHAR(100) NOT NULL,
-        item_name TEXT,
-        item_category VARCHAR(100),
-        warehouse_name VARCHAR(100),
-        salesman_name VARCHAR(100),
-        quantity DECIMAL(15,2) NOT NULL,
-        unit_name VARCHAR(50),
-        unit_price DECIMAL(15,2) NOT NULL,
-        discount DECIMAL(15,2) DEFAULT 0,
-        amount DECIMAL(15,2) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (invoice_id) REFERENCES sales_invoices(id) ON DELETE CASCADE
-      )
-    `);
-
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_invoice_items 
-      ON sales_invoice_items(invoice_id)
-    `);
-    
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_item_no 
-      ON sales_invoice_items(item_no)
     `);
 
     // Create purchase_invoices table
@@ -721,6 +721,229 @@ const initialize = async () => {
 
     await client.query(`CREATE INDEX IF NOT EXISTS idx_relations_branch ON sales_invoice_relations(branch_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_relations_invoice ON sales_invoice_relations(invoice_id)`);
+
+    // Sales Orders Header Table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS sales_orders (
+        id SERIAL PRIMARY KEY,
+        order_id BIGINT UNIQUE NOT NULL,
+        order_number VARCHAR(50) NOT NULL,
+        branch_id VARCHAR(50) NOT NULL,
+        branch_name VARCHAR(255),
+        
+        -- Dates
+        trans_date DATE,
+        delivery_date DATE,
+        
+        -- Customer
+        customer_id VARCHAR(50),
+        customer_name VARCHAR(255),
+        customer_address TEXT,
+        
+        -- Salesman
+        salesman_id VARCHAR(50),
+        salesman_name VARCHAR(255),
+        
+        -- Warehouse
+        warehouse_id VARCHAR(50),
+        warehouse_name VARCHAR(255),
+        
+        -- Amounts
+        subtotal DECIMAL(15,2) DEFAULT 0,
+        discount DECIMAL(15,2) DEFAULT 0,
+        tax DECIMAL(15,2) DEFAULT 0,
+        total DECIMAL(15,2) DEFAULT 0,
+        
+        -- Status
+        order_status VARCHAR(50),
+        
+        -- Additional fields
+        po_number VARCHAR(100),
+        
+        -- Metadata
+        opt_lock INTEGER DEFAULT 0,
+        raw_data JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Sales Order Items Table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS sales_order_items (
+        id SERIAL PRIMARY KEY,
+        order_id BIGINT NOT NULL,
+        
+        -- Item info
+        item_no VARCHAR(50),
+        item_name VARCHAR(255),
+        item_category VARCHAR(100),
+        
+        -- Quantity & Price
+        quantity DECIMAL(15,2) DEFAULT 0,
+        unit_name VARCHAR(50),
+        unit_price DECIMAL(15,2) DEFAULT 0,
+        discount DECIMAL(15,2) DEFAULT 0,
+        amount DECIMAL(15,2) DEFAULT 0,
+        
+        -- Additional
+        warehouse_name VARCHAR(255),
+        salesman_name VARCHAR(255),
+        warehouse_address TEXT,
+        item_notes TEXT,
+        
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        
+        FOREIGN KEY (order_id) REFERENCES sales_orders(order_id) ON DELETE CASCADE
+      )
+    `);
+
+    // Indexes for sales_orders
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_sales_orders_branch ON sales_orders(branch_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_sales_orders_date ON sales_orders(trans_date)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_sales_orders_customer ON sales_orders(customer_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_sales_orders_status ON sales_orders(order_status)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_sales_orders_number ON sales_orders(order_number)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_sales_orders_po_number ON sales_orders(po_number)`);
+    
+    // Indexes for sales_order_items
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_sales_order_items_order ON sales_order_items(order_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_sales_order_items_item ON sales_order_items(item_no)`);
+
+    // Trigger for updated_at on sales_orders
+    await client.query(`
+      CREATE OR REPLACE FUNCTION update_sales_orders_updated_at()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        NEW.updated_at = CURRENT_TIMESTAMP;
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql
+    `);
+
+    await client.query(`
+      DROP TRIGGER IF EXISTS trigger_sales_orders_updated_at ON sales_orders
+    `);
+
+    await client.query(`
+      CREATE TRIGGER trigger_sales_orders_updated_at
+        BEFORE UPDATE ON sales_orders
+        FOR EACH ROW
+        EXECUTE FUNCTION update_sales_orders_updated_at()
+    `);
+
+    // Sales Returns Header Table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS sales_returns (
+        id SERIAL PRIMARY KEY,
+        sales_return_id BIGINT NOT NULL,
+        return_number VARCHAR(50) NOT NULL,
+
+        -- Branch / database context
+        branch_id VARCHAR(50),
+        branch_name VARCHAR(255),
+
+        -- Dates & reference documents
+        trans_date DATE,
+        invoice_id BIGINT,
+        invoice_number VARCHAR(50),
+        return_type VARCHAR(30),
+
+        -- Amounts
+        return_amount DECIMAL(18,6) DEFAULT 0,
+        sub_total DECIMAL(18,6) DEFAULT 0,
+        cash_discount DECIMAL(18,6) DEFAULT 0,
+
+        -- Misc info
+        description TEXT,
+        approval_status VARCHAR(50),
+        customer_id BIGINT,
+        po_number VARCHAR(50),
+        master_salesman_id BIGINT,
+        salesman_name VARCHAR(255),
+        currency_code VARCHAR(10),
+
+        -- Accounting refs
+        journal_id BIGINT,
+
+        -- Metadata
+        created_by VARCHAR(50),
+        opt_lock INTEGER DEFAULT 0,
+        raw_data JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        
+        UNIQUE(sales_return_id, branch_id)
+      )
+    `);
+
+    // Sales Return Items Table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS sales_return_items (
+        id SERIAL PRIMARY KEY,
+        sales_return_id BIGINT NOT NULL,
+        return_number VARCHAR(50),
+        branch_id VARCHAR(50),
+
+        -- Item info
+        item_id BIGINT,
+        item_no VARCHAR(100),
+        item_name VARCHAR(255),
+        seq INTEGER,
+        quantity DECIMAL(18,6) DEFAULT 0,
+        unit_name VARCHAR(30),
+        unit_price DECIMAL(18,6) DEFAULT 0,
+        return_amount DECIMAL(18,6) DEFAULT 0,
+
+        -- Warehouse & costing
+        cogs_gl_account_id BIGINT,
+        warehouse_id BIGINT,
+        warehouse_name VARCHAR(255),
+        cost_item DECIMAL(18,6) DEFAULT 0,
+
+        -- Source references
+        sales_invoice_detail_id BIGINT,
+        invoice_detail_quantity DECIMAL(18,6) DEFAULT 0,
+        sales_order_id BIGINT,
+        return_detail_status VARCHAR(50),
+
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        
+        UNIQUE(sales_return_id, branch_id,seq)
+      )
+    `);
+
+    // Indexes for sales_returns
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_sales_returns_branch ON sales_returns(branch_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_sales_returns_date ON sales_returns(trans_date)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_sales_returns_customer ON sales_returns(customer_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_sales_returns_return_number ON sales_returns(return_number)`);
+    
+    // Indexes for sales_return_items
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_sales_return_items_header ON sales_return_items(sales_return_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_sales_return_items_item ON sales_return_items(item_id)`);
+
+    // Trigger for updated_at on sales_returns
+    await client.query(`
+      CREATE OR REPLACE FUNCTION update_sales_returns_updated_at()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        NEW.updated_at = CURRENT_TIMESTAMP;
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql
+    `);
+
+    await client.query(`
+      DROP TRIGGER IF EXISTS trigger_sales_returns_updated_at ON sales_returns
+    `);
+
+    await client.query(`
+      CREATE TRIGGER trigger_sales_returns_updated_at
+        BEFORE UPDATE ON sales_returns
+        FOR EACH ROW
+        EXECUTE FUNCTION update_sales_returns_updated_at()
+    `);
 
     // Table untuk cache data (backward compatibility)
     await client.query(`
