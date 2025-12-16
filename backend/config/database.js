@@ -726,7 +726,7 @@ const initialize = async () => {
     await client.query(`
       CREATE TABLE IF NOT EXISTS sales_orders (
         id SERIAL PRIMARY KEY,
-        order_id BIGINT UNIQUE NOT NULL,
+        order_id BIGINT NOT NULL,
         order_number VARCHAR(50) NOT NULL,
         branch_id VARCHAR(50) NOT NULL,
         branch_name VARCHAR(255),
@@ -762,6 +762,7 @@ const initialize = async () => {
         
         -- Metadata
         opt_lock INTEGER DEFAULT 0,
+        UNIQUE(order_id, branch_id),
         raw_data JSONB,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -773,6 +774,8 @@ const initialize = async () => {
       CREATE TABLE IF NOT EXISTS sales_order_items (
         id SERIAL PRIMARY KEY,
         order_id BIGINT NOT NULL,
+        branch_id VARCHAR(50) NOT NULL,
+        seq INTEGER,
         
         -- Item info
         item_no VARCHAR(50),
@@ -793,8 +796,8 @@ const initialize = async () => {
         item_notes TEXT,
         
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        
-        FOREIGN KEY (order_id) REFERENCES sales_orders(order_id) ON DELETE CASCADE
+        UNIQUE(order_id, branch_id,seq),
+        FOREIGN KEY (order_id, branch_id) REFERENCES sales_orders(order_id, branch_id) ON DELETE CASCADE
       )
     `);
 

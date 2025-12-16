@@ -151,7 +151,12 @@ const accurateService = {
       return response.data;
     } catch (error) {
       console.error(`Error fetching ${endpoint} detail for ID ${id}:`, error.response?.data || error.message);
-      throw new Error(`Failed to fetch ${endpoint} detail from Accurate API`);
+      // Return error structure instead of throwing, so syncSmart can capture the real message
+      return {
+        s: false,
+        d: error.response?.data?.d || [error.message],
+        ts: new Date().toISOString()
+      };
     }
   },
 
