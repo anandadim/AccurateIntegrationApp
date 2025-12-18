@@ -81,20 +81,23 @@ const purchaseOrderModel = {
             unit_price, total_price, tax_rate,
             warehouse_id, warehouse_name, notes
           ) VALUES (
-            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16
           )
-          ON CONFLICT (order_id, detail_id, branch_id,seq)
+          ON CONFLICT (order_id, branch_id, order_number, seq)
           DO UPDATE SET
           order_number = EXCLUDED.order_number,
+          item_id = EXCLUDED.item_id,
           item_no = EXCLUDED.item_no,
           item_name = EXCLUDED.item_name,
           quantity = EXCLUDED.quantity,
+          unit_id = EXCLUDED.unit_id,
           unit_name = EXCLUDED.unit_name,
           unit_price = EXCLUDED.unit_price,
-          discount = EXCLUDED.discount,
-          amount = EXCLUDED.amount,
+          total_price = EXCLUDED.total_price,
+          tax_rate = EXCLUDED.tax_rate,
+          warehouse_id = EXCLUDED.warehouse_id,
           warehouse_name = EXCLUDED.warehouse_name,
-          item_category = EXCLUDED.item_category
+          notes = EXCLUDED.notes
         `;
 
         for (const item of items) {

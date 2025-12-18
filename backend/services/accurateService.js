@@ -257,6 +257,75 @@ const accurateService = {
     }
   },
 
+  async fetchAllPagesWithFilter(endpoint, dbId, filters = {}, branchId = null, options = {}) {
+    const extractArray = (data) => {
+      if (Array.isArray(data)) return data;
+      if (data && typeof data === 'object') {
+        if (Array.isArray(data.d)) return data.d;
+        if (Array.isArray(data.data)) return data.data;
+        if (Array.isArray(data.items)) return data.items;
+      }
+      return [];
+    };
+
+    const enforcedPageSize = 1000;
+    const pageDelay = typeof options.pageDelay === 'number' ? options.pageDelay : 100;
+    const maxPages = typeof options.maxPages === 'number' ? options.maxPages : null;
+
+    let page = 1;
+    let allItems = [];
+    let totalPages = null;
+    let totalRows = null;
+
+    while (true) {
+      const pageFilters = {
+        ...filters,
+        'sp.page': page,
+        'sp.pageSize': enforcedPageSize
+      };
+
+      const response = await this.fetchDataWithFilter(endpoint, dbId, pageFilters, branchId);
+
+      if (response && typeof response === 'object' && response.s === false) {
+        const message = Array.isArray(response.d) ? response.d.join('; ') : 'Accurate API returned an error';
+        throw new Error(message);
+      }
+
+      const items = extractArray(response);
+      allItems = allItems.concat(items);
+
+      if (items.length === 0) break;
+
+      const sp = response && typeof response === 'object' ? response.sp : null;
+      if (sp && typeof sp === 'object') {
+        if (typeof sp.rowCount === 'number') totalRows = sp.rowCount;
+        const effectivePageSize = typeof sp.pageSize === 'number' ? sp.pageSize : enforcedPageSize;
+        if (typeof sp.rowCount === 'number' && effectivePageSize > 0) {
+          totalPages = Math.ceil(sp.rowCount / effectivePageSize);
+        }
+      }
+
+      if (totalPages !== null && page >= totalPages) break;
+      if (totalPages === null && items.length < enforcedPageSize) break;
+      if (maxPages !== null && page >= maxPages) break;
+
+      page += 1;
+      if (pageDelay > 0) {
+        await new Promise(resolve => setTimeout(resolve, pageDelay));
+      }
+    }
+
+    return {
+      success: true,
+      items: allItems,
+      pagination: {
+        totalPages,
+        totalRows,
+        pageSize: enforcedPageSize
+      }
+    };
+  },
+
   // NEW: Fetch and stream insert (insert per batch, not wait all)
   async fetchAndStreamInsert(endpoint, dbId, options = {}, branchId = null, branchName = '', onBatchCallback) {
     try {

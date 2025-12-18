@@ -10,6 +10,7 @@ const itemModel = {
           item_id,
           item_no,
           name,
+          branch_id,
           category_name,
           type,
           stock,
@@ -87,8 +88,8 @@ const itemModel = {
   },
 
   // Sync item data from Accurate API
-  async syncItem(itemData) {
-    console.log('📦 Syncing item data:', { id: itemData.id });
+  async syncItem(itemData, branchId = null) {
+    console.log('📦 Syncing item data:', { id: itemData.id, branchId });
     
     // Process raw Accurate API data structure
     const { 
@@ -113,7 +114,8 @@ const itemModel = {
       balance,
       itemCategoryId,
       suspended,
-      detailWarehouseData
+      detailWarehouseData,
+      seq
     } = itemData;
 
     console.log('🔍 Raw item data structure:', {
@@ -180,12 +182,12 @@ const itemModel = {
     const query = {
       text: `
         INSERT INTO items (
-          item_id, item_no, name, category_name, type, 
+          item_id, item_no, seq, branch_id, name, category_name, type, 
           stock, warehouse, unit_name, brand, tax1_rate, tax2_rate, 
           tax_included, suspended, item_category_id, raw_data, updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, CURRENT_TIMESTAMP)
-        ON CONFLICT (item_id) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, CURRENT_TIMESTAMP)
+        ON CONFLICT (item_id, branch_id, seq) 
         DO UPDATE SET
           item_no = EXCLUDED.item_no,
           name = EXCLUDED.name,
@@ -207,10 +209,12 @@ const itemModel = {
       values: [
         id,
         itemNo,
+        seq || 0,
+        branchId || '',
         itemName,
         categoryName,
-        itemTypeNameFinal,  // Use the corrected field
-        balance || 0,
+        itemTypeNameFinal,
+        stockQuantity,
         warehouse || '',
         unitName,
         brandName,
@@ -219,7 +223,7 @@ const itemModel = {
         taxIncluded || false,
         suspended || false,
         itemCategoryIdValue,
-        itemData // Store full raw data
+        itemData
       ]
     };
 
@@ -252,6 +256,21 @@ const itemModel = {
       items: successful,
       warehouses: warehouses
     };
+  },
+
+    async getExistingForSync(branchId) {
+    const query = `
+      SELECT 
+        item_id,
+        item_no,
+        updated_at
+      FROM items 
+      WHERE branch_id = $1 
+      ORDER BY item_id
+    `;
+    
+    const result = await pool.query(query, [branchId]);
+    return result.rows;
   },
 
   // Update warehouse stock

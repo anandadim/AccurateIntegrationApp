@@ -316,6 +316,8 @@ const initialize = async () => {
         id SERIAL PRIMARY KEY,
         item_id BIGINT NOT NULL,
         item_no VARCHAR(100) NOT NULL,
+        branch_id VARCHAR(50) NOT NULL,
+        seq INTEGER,
         name VARCHAR(255) NOT NULL,
         category_name VARCHAR(100),
         item_category_id BIGINT,
@@ -331,7 +333,7 @@ const initialize = async () => {
         raw_data JSONB,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(item_id)
+        UNIQUE(item_id,branch_id,seq)
       )
     `);
 
@@ -544,11 +546,13 @@ const initialize = async () => {
       CREATE TABLE IF NOT EXISTS warehouse_stock (
         id SERIAL PRIMARY KEY,
         item_id BIGINT NOT NULL,
+        branch_id VARCHAR(50) NOT NULL,
+        seq INTEGER,
         warehouse_id VARCHAR(50) NOT NULL,
         warehouse_name VARCHAR(100),
         stock_quantity DECIMAL(15,2) DEFAULT 0,
         last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (item_id) REFERENCES items(item_id) ON DELETE CASCADE,
+        FOREIGN KEY (item_id,branch_id,seq) REFERENCES items(item_id,branch_id,seq) ON DELETE CASCADE,
         UNIQUE(item_id, warehouse_id)
       )
     `);
