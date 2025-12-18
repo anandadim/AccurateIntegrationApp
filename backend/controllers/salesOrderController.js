@@ -385,25 +385,39 @@ const salesOrderController = {
       let savedCount = 0;
       let errorCount = 0;
       let fetchErrorCount = 0;
+      const errorDetails = [];
       
       // Helper: Fetch with retry
       const fetchWithRetry = async (id, maxRetries = 2) => {
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
             const response = await accurateService.fetchDetail('sales-order', id, branch.dbId, branchId);
-            
-            if (!response || !response.d || !response.d.id) {
-              if (response && response.s === false && response.d && 
-                  Array.isArray(response.d) && response.d[0]?.includes('Unable to acquire JDBC Connection')) {
-                if (attempt < maxRetries) {
-                  console.log(`   ├─ 🔄 Retry ${attempt}/${maxRetries} for ID ${id} (JDBC error)`);
-                  await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-                  continue;
-                }
+
+            if (!response) {
+              return { error: true, id: id, message: 'No response from Accurate API' };
+            }
+
+            // Accurate API may return a valid HTTP response but with s:false (rate limit, etc.)
+            if (response.s === false) {
+              const isJdbc = response.d && Array.isArray(response.d) && response.d[0]?.includes('Unable to acquire JDBC Connection');
+
+              if (isJdbc && attempt < maxRetries) {
+                console.log(`   ├─ 🔄 Retry ${attempt}/${maxRetries} for ID ${id} (JDBC error)`);
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+                continue;
               }
+
+              const message = Array.isArray(response.d)
+                ? response.d.join(' | ')
+                : (typeof response.d === 'string' ? response.d : JSON.stringify(response.d || response));
+
+              return { error: true, id: id, message };
+            }
+
+            if (!response.d || !response.d.id) {
               return { error: true, id: id, message: 'Invalid response structure' };
             }
-            
+
             return response;
           } catch (err) {
             const is502 = err.message?.includes('502 Bad Gateway');
@@ -435,6 +449,9 @@ const salesOrderController = {
         const successDetails = batchDetails.filter(d => !d.error);
         const failedDetails = batchDetails.filter(d => d.error);
         
+        // Collect fetch errors for response
+        failedDetails.forEach(fd => errorDetails.push({ id: fd.id, stage: 'fetch', message: fd.message }));
+        
         fetchErrorCount += failedDetails.length;
         
         console.log(`   ├─ Fetched: ${successDetails.length}/${batch.length} (${failedDetails.length} fetch errors)`);
@@ -445,6 +462,10 @@ const salesOrderController = {
           const saveResult = await salesOrderController._saveBatch(successDetails, branchId, branch.name);
           savedCount += saveResult.savedCount;
           errorCount += saveResult.errorCount;
+          // Append save errors
+          if (saveResult.errors && Array.isArray(saveResult.errors)) {
+            saveResult.errors.forEach(errObj => errorDetails.push({ id: errObj.order, stage: 'save', message: errObj.error }));
+          }
           
           console.log(`   ✅ Batch ${batchNum} done: ${saveResult.savedCount} saved, ${saveResult.errorCount} save errors\n`);
         } else {
@@ -473,6 +494,7 @@ const salesOrderController = {
       return reply.send({
         success: true,
         message: `Smart sync completed for ${branch.name}`,
+        errors: errorDetails,
         summary: {
           branch: branch.name,
           dateRange: { from: dateFrom || today, to: dateTo || today },

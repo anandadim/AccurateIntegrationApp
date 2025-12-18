@@ -19,7 +19,7 @@ const salesOrderModel = {
           subtotal, discount, tax, total,
           order_status, opt_lock, raw_data
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
-        ON CONFLICT (order_id) 
+        ON CONFLICT (order_id, branch_id) 
         DO UPDATE SET
           order_number = EXCLUDED.order_number,
           branch_id = EXCLUDED.branch_id,
@@ -79,17 +79,32 @@ const salesOrderModel = {
       if (items && items.length > 0) {
         const itemQuery = `
           INSERT INTO sales_order_items (
-            order_id, item_no, item_name,
+            order_id, item_no, item_name,branch_id, seq,
             quantity, unit_name, unit_price, discount, amount,
             warehouse_name, warehouse_address, salesman_name, item_category, item_notes
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-        `;
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,$14,$15)
+           ON CONFLICT (order_id, branch_id,seq) 
+          DO UPDATE SET
+            item_no = EXCLUDED.item_no,
+            item_name = EXCLUDED.item_name,
+            quantity = EXCLUDED.quantity,
+            unit_name = EXCLUDED.unit_name,
+            unit_price = EXCLUDED.unit_price,
+            discount = EXCLUDED.discount,
+            amount = EXCLUDED.amount,
+            warehouse_name = EXCLUDED.warehouse_name,
+            salesman_name = EXCLUDED.salesman_name,
+            item_category = EXCLUDED.item_category,
+            item_notes = EXCLUDED.item_notes
+          `;
 
         for (const item of items) {
           const itemValues = [
             orderId,
             item.item_no,
             item.item_name,
+            item.branch_id || headerData.branch_id,
+            item.seq,
             item.quantity,
             item.unit_name,
             item.unit_price,
@@ -99,7 +114,7 @@ const salesOrderModel = {
             item.warehouse_address,
             item.salesman_name,
             item.item_category,
-            item.item_notes
+            item.item_notes,
           ];
 
           await client.query(itemQuery, itemValues);

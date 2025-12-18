@@ -81,6 +81,11 @@
           </div>
         </div>
 
+         <!-- Error Display -->
+        <div v-if="error" class="error-box">
+          ❌ {{ error }}
+        </div>
+
         <div class="sync-recommendation">
           <p v-if="checkResult.summary.needSync > 0" class="need-sync">
             ⚠️ Need to sync: <strong>{{ checkResult.summary.needSync }}</strong> orders
@@ -139,7 +144,7 @@
       </div>
 
       <!-- Sync Result -->
-      <div v-if="syncResult" class="result-box success">
+      <div v-if="syncResult" class="result-box" :class="syncResult.errors && syncResult.errors.length ? 'warning' : 'success'">
         <h4>✅ Sync Completed!</h4>
         <div class="result-grid">
           <div class="result-item">
@@ -159,13 +164,20 @@
             <span class="value">{{ syncResult.summary.duration }}</span>
           </div>
         </div>
+
+        <!-- Error Details -->
+        <div v-if="syncResult.errors && syncResult.errors.length" class="error-details">
+          <h4>⚠️ Errors ({{ syncResult.errors.length }})</h4>
+          <ul>
+            <li v-for="err in syncResult.errors.slice(0, 10)" :key="`${err.stage}-${err.id}`">
+              <strong>{{ err.stage }} ➜ ID {{ err.id }}:</strong> {{ err.message }}
+            </li>
+          </ul>
+          <p v-if="syncResult.errors.length > 10" class="hint">Showing first 10 errors.</p>
+        </div>
       </div>
     </div>
 
-    <!-- Error Display -->
-    <div v-if="error" class="error-box">
-      ❌ {{ error }}
-    </div>
   </div>
 </template>
 
@@ -217,7 +229,8 @@ export default {
       checking.value = true
       error.value = ''
       checkResult.value = null
-      syncResult.value = null
+      // Don't clear syncResult here; checkSync() is also called after sync to refresh status,
+      // and clearing it would make error details disappear from the UI.
 
       try {
         const result = await apiService.checkOrderSyncStatus({
@@ -444,11 +457,11 @@ export default {
 }
 
 .result-box {
+  border-left: 4px solid #42b983;
   margin-top: 16px;
   padding: 16px;
   background: #f8f9fa;
   border-radius: 4px;
-  border-left: 4px solid #42b983;
 }
 
 .result-box.success {
@@ -618,4 +631,26 @@ export default {
   color: #155724;
   margin: 0;
 }
+.result-box.warning {
+  border-left-color: #e67e22;
+}
+
+.error-details {
+  margin-top: 16px;
+  background: #fff7e6;
+  border: 1px solid #f1c40f;
+  border-radius: 4px;
+  padding: 12px;
+}
+.error-details ul {
+  margin: 0;
+  padding-left: 20px;
+  list-style: disc;
+  font-size: 14px;
+  color: #d35400;
+}
+.error-details li + li {
+  margin-top: 4px;
+}
+
 </style>

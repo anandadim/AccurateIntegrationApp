@@ -190,7 +190,7 @@ const purchaseInvoiceController = {
     const startTime = Date.now();
     
     try {
-      const { 
+      let { 
         branchId, 
         dateFrom, 
         dateTo, 
@@ -199,6 +199,9 @@ const purchaseInvoiceController = {
         batchDelay = 300,
         mode = 'missing'
       } = request.query;
+
+      batchSize = parseInt(batchSize, 10) || 50;
+      batchDelay = parseInt(batchDelay, 10) || 300;
 
       if (!branchId) {
         return reply.code(400).send({ error: 'branchId is required' });
@@ -406,7 +409,7 @@ const purchaseInvoiceController = {
     const startTime = Date.now();
     
     try {
-      const { 
+        let {
         branchId, 
         dateFrom, 
         dateTo, 
@@ -414,6 +417,10 @@ const purchaseInvoiceController = {
         batchSize = 50,
         batchDelay = 300
       } = request.query;
+
+      // Ensure numeric values (query params are strings)
+      batchSize = parseInt(batchSize, 10) || 20;
+      batchDelay = parseInt(batchDelay, 10) || 500;
 
       if (!branchId) {
         return reply.code(400).send({ error: 'branchId is required' });

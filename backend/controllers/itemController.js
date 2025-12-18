@@ -62,15 +62,14 @@ const itemController = {
       const dbId = branch.dbId;
 
       // Get items from Accurate API
-      const apiItems = await accurateService.fetchDataWithFilter('item/list', dbId, {
-        'sp.pageSize': 1000
+      const apiItemsResult = await accurateService.fetchAllPagesWithFilter('item/list', dbId, {
+        fields: 'id,updatedDate,modifiedDate,createdDate'
       }, branchId);
+      const apiItems = apiItemsResult.items;
       
       console.log('📦 API Items Response:', { 
-        type: typeof apiItems, 
-        isArray: Array.isArray(apiItems), 
         length: apiItems?.length,
-        data: apiItems 
+        sample: Array.isArray(apiItems) ? apiItems.slice(0, 2) : apiItems 
       });
       
       // Handle different response formats
@@ -94,42 +93,44 @@ const itemController = {
       });
       
       // Get items from database
-      const dbItems = await itemModel.getAllItems();
-      
+      const dbItems = await itemModel.getExistingForSync(branchId);
+
       // Create maps for comparison
       const dbItemMap = new Map();
       dbItems.forEach(item => {
-        dbItemMap.set(item.item_id, item);
+        dbItemMap.set(parseInt(item.item_id), item);
       });
 
-      // Compare and categorize
+      // Compare and categorize (single pass, no double counting)
       const summary = {
         new: 0,
         updated: 0,
         unchanged: 0,
         total: itemsArray.length,
-        needSync: 0
+        needSync: 0,
+        inDatabase: dbItems.length
       };
 
-      itemsArray.forEach(apiItem => {
-        const dbItem = dbItemMap.get(apiItem.id);
-        
+      for (const apiItem of itemsArray) {
+        const apiId = parseInt(apiItem.id);
+        const dbItem = dbItemMap.get(apiId);
+
         if (!dbItem) {
           summary.new++;
           summary.needSync++;
-        } else {
-          // Compare update timestamps
-          const apiUpdatedAt = new Date(apiItem.updatedDate || apiItem.modifiedDate || apiItem.createdDate);
-          const dbUpdatedAt = new Date(dbItem.updated_at);
-          
-          if (apiUpdatedAt > dbUpdatedAt) {
-            summary.updated++;
-            summary.needSync++;
-          } else {
-            summary.unchanged++;
-          }
+          continue;
         }
-      });
+
+        const apiUpdatedAt = new Date(apiItem.updatedDate || apiItem.modifiedDate || apiItem.createdDate);
+        const dbUpdatedAt = new Date(dbItem.updated_at);
+
+        if (apiUpdatedAt > dbUpdatedAt) {
+          summary.updated++;
+          summary.needSync++;
+        } else {
+          summary.unchanged++;
+        }
+      }
       
       return { success: true, summary };
     } catch (error) {
@@ -142,8 +143,11 @@ const itemController = {
   // Smart sync items
   async syncItemsSmart(request, reply) {
     try {
-      const { branchId, batchSize = 20, batchDelay = 300, mode = 'missing' } = request.query;
-      
+      let { branchId, batchSize = 20, batchDelay = 300, mode = 'missing' } = request.query;
+
+      batchSize = parseInt(batchSize, 10) || 50;
+      batchDelay = parseInt(batchDelay, 10) || 300;
+
       // Get branch data to extract dbId
       const branches = accurateService.getBranches();
       const branch = branches.find(b => b.id === branchId);
@@ -156,9 +160,10 @@ const itemController = {
       const dbId = branch.dbId;
 
       // Get items list from Accurate API (basic info with IDs only)
-      const apiItemsList = await accurateService.fetchDataWithFilter('item/list', dbId, {
-        'sp.pageSize': 500
+      const apiItemsListResult = await accurateService.fetchAllPagesWithFilter('item/list', dbId, {
+        fields: 'id'
       }, branchId);
+      const apiItemsList = apiItemsListResult.items;
       
       // Handle different response formats
       let itemsListArray = [];
@@ -178,7 +183,7 @@ const itemController = {
       
       // Fetch complete details for each item (like invoice/sales pattern)
       const apiItems = [];
-      const detailBatchSize = 10;
+      const detailBatchSize = Math.min(batchSize, 50); // Use same batch size but cap at 20 for API calls
       for (let i = 0; i < itemsListArray.length; i += detailBatchSize) {
         const batch = itemsListArray.slice(i, i + detailBatchSize);
         console.log(`📦 Fetching details for batch ${Math.floor(i/detailBatchSize) + 1}/${Math.ceil(itemsListArray.length/detailBatchSize)} (${batch.length} items)`);
@@ -212,14 +217,14 @@ const itemController = {
       }
       
       console.log(`✅ Fetched complete details for ${apiItems.length} items`);
-      
+
       // Get items from database
-      const dbItems = await itemModel.getAllItems();
-      
+      const dbItems = await itemModel.getExistingForSync(branchId);
+
       // Create maps for comparison
       const dbItemMap = new Map();
       dbItems.forEach(item => {
-        dbItemMap.set(item.item_id, item);
+        dbItemMap.set(parseInt(item.item_id), item);
       });
 
       // Filter items based on mode
@@ -228,7 +233,8 @@ const itemController = {
       if (mode === 'missing') {
         // Only sync new or updated items
         apiItems.forEach(apiItem => {
-          const dbItem = dbItemMap.get(apiItem.id);
+          const apiId = parseInt(apiItem.id);
+          const dbItem = dbItemMap.get(apiId);
           
           if (!dbItem) {
             itemsToSync.push(apiItem);
@@ -248,7 +254,8 @@ const itemController = {
       } else {
         // Default to 'missing' mode
         itemsToSync = apiItems.filter(apiItem => {
-          const dbItem = dbItemMap.get(apiItem.id);
+          const apiId = parseInt(apiItem.id);
+          const dbItem = dbItemMap.get(apiId);
           return !dbItem || new Date(apiItem.updatedDate || apiItem.modifiedDate || apiItem.createdDate) > new Date(dbItem.updated_at);
         });
       }
@@ -266,37 +273,9 @@ const itemController = {
         
         console.log(`Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(itemsToSync.length/batchSize)} (${batch.length} items)`);
         
-        // Process batch items
         for (const apiItem of batch) {
           try {
-            // Log the raw API item structure for debugging
-            console.log(`🔍 Raw API Item Structure for ID ${apiItem.id}:`, {
-              availableFields: Object.keys(apiItem),
-              hasNo: !!apiItem.no,
-              hasName: !!apiItem.name,
-              hasItemCategory: !!apiItem.itemCategory,
-              hasItemTypeName: !!apiItem.itemTypeName,
-              hasItemType: !!apiItem.itemType,
-              hasUnit1: !!apiItem.unit1,
-              hasUnit1Name: !!apiItem.unit1Name,
-              hasItemBrand: !!apiItem.itemBrand,
-              hasDetailWarehouseData: !!apiItem.detailWarehouseData,
-              sampleData: {
-                id: apiItem.id,
-                no: apiItem.no,
-                name: apiItem.name,
-                itemCategory: apiItem.itemCategory?.name,
-                itemTypeName: apiItem.itemTypeName,
-                itemType: apiItem.itemType,
-                unit1Name: apiItem.unit1Name,
-                itemBrand: apiItem.itemBrand?.name,
-                balance: apiItem.balance,
-                warehouseCount: apiItem.detailWarehouseData?.length || 0
-              }
-            });
-            
-            // Save/update item in database
-            await itemModel.syncItem(apiItem);
+            await itemModel.syncItem(apiItem, branchId);
             synced++;
           } catch (error) {
             console.error(`Error saving item ${apiItem.id}:`, error);
@@ -304,7 +283,6 @@ const itemController = {
           }
         }
 
-        // Delay between batches
         if (i + batchSize < itemsToSync.length && batchDelay > 0) {
           await new Promise(resolve => setTimeout(resolve, batchDelay));
         }
@@ -350,7 +328,7 @@ const itemController = {
       }
 
       // Save/update item in database
-      const savedItem = await itemModel.syncItem(itemData);
+      const savedItem = await itemModel.syncItem(itemData, branch || '');
 
       return {
         success: true,
