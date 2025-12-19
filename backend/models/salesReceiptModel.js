@@ -20,7 +20,7 @@ const salesReceiptModel = {
         ) VALUES (
           $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20
         )
-        ON CONFLICT (receipt_id)
+        ON CONFLICT (receipt_id,branch_id)
         DO UPDATE SET
           receipt_number = EXCLUDED.receipt_number,
           journal_id = EXCLUDED.journal_id,
@@ -74,17 +74,31 @@ const salesReceiptModel = {
       if (items && items.length > 0) {
         const itemQuery = `
           INSERT INTO sales_receipt_items (
-            receipt_id, branch_id,
+            receipt_id, branch_id,seq,
             invoice_id, invoice_number, invoice_date, invoice_total, invoice_remaining,
             payment_amount, discount_amount, paid_amount, status
           ) VALUES (
-            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11
-          )`;
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12
+          )
+            ON CONFLICT (receipt_id,branch_id,seq)
+        DO UPDATE SET
+          invoice_id = EXCLUDED.invoice_id,
+          invoice_number = EXCLUDED.invoice_number,
+          invoice_date = EXCLUDED.invoice_date,
+          invoice_total = EXCLUDED.invoice_total,
+          invoice_remaining = EXCLUDED.invoice_remaining,
+          payment_amount = EXCLUDED.payment_amount,
+          discount_amount = EXCLUDED.discount_amount,
+          paid_amount = EXCLUDED.paid_amount,
+          status = EXCLUDED.status
+        `;
+
 
         for (const item of items) {
           await client.query(itemQuery, [
             receiptData.receipt_id,
             receiptData.branch_id,
+            item.seq,
             item.invoice_id,
             item.invoice_number,
             item.invoice_date,
