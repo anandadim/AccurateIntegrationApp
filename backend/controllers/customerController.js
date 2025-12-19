@@ -67,7 +67,9 @@ const customerController = {
   // Sync customers smart (new+updated)
   async syncSmart(request, reply) {
     try {
-      const { branchId, mode = 'missing', batchSize = 50, batchDelay = 300 } = request.query;
+      let { branchId, mode = 'missing', batchSize = 50, batchDelay = 300 } = request.query;
+      batchSize = parseInt(batchSize, 10) || 50;
+      batchDelay = parseInt(batchDelay, 10) || 300;
       if (!branchId) {
         return reply.code(400).send({ error: 'branchId is required' });
       }
@@ -75,16 +77,21 @@ const customerController = {
       const branch = branches.find(b => b.id === branchId);
       if (!branch) return reply.code(404).send({ error: 'Branch not found' });
 
-      // Fetch full list
-      const listResp = await accurateService.fetchDataWithFilter('customer/list', branch.dbId, { 'sp.pageSize': 1000 }, branchId);
-      const pageSize = listResp.sp?.pageSize || 1000;
-      const totalRows = listResp.sp?.rowCount || listResp.d.length;
-      const totalPages = Math.ceil(totalRows / pageSize);
-      let apiList = [...listResp.d];
-      for (let p = 2; p <= totalPages; p++) {
-        const pr = await accurateService.fetchDataWithFilter('customer/list', branch.dbId, { 'sp.pageSize': 1000, 'sp.page': p }, branchId);
-        apiList = apiList.concat(pr.d);
-        await new Promise(r => setTimeout(r, 100));
+      // Fetch customers ID list (all pages) – lightweight payload
+      const listResult = await accurateService.fetchAllPagesWithFilter(
+        'customer/list',
+        branch.dbId,
+        { fields: 'id,updatedDate,modifiedDate,createdDate,lastUpdate' },
+        branchId
+      );
+      const apiListRaw = listResult.items;
+      let apiList = [];
+      if (Array.isArray(apiListRaw)) {
+        apiList = apiListRaw;
+      } else if (apiListRaw && typeof apiListRaw === 'object') {
+        if (Array.isArray(apiListRaw.d)) apiList = apiListRaw.d;
+        else if (Array.isArray(apiListRaw.data)) apiList = apiListRaw.data;
+        else if (Array.isArray(apiListRaw.items)) apiList = apiListRaw.items;
       }
 
       // Determine IDs to sync
@@ -100,21 +107,27 @@ const customerController = {
         });
       }
 
-      // Fetch details in batches
+      // Fetch details and save in batches
       let saved = 0, errors = 0;
-      for (let i = 0; i < customersToSync.length; i += batchSize) {
-        const batch = customersToSync.slice(i, i + batchSize);
-        const detailPromises = batch.map(c => accurateService.fetchDetail('customer', c.id, branch.dbId, branchId).catch(e => ({ error: e })));
+      const detailBatchSize = Math.min(batchSize, 50);
+      for (let i = 0; i < customersToSync.length; i += detailBatchSize) {
+        const batch = customersToSync.slice(i, i + detailBatchSize);
+        const detailPromises = batch.map(c =>
+          accurateService.fetchDetail('customer', c.id, branch.dbId, branchId)
+            .catch(err => ({ error: err }))
+        );
         const details = await Promise.all(detailPromises);
         const valid = details.filter(d => d && !d.error && d.d);
         const failed = details.filter(d => d && d.error);
         if (failed.length > 0) {
-          console.warn(`Batch ${Math.floor(i/batchSize) + 1}: ${failed.length} detail fetch failed`, failed.map(f => f.error?.message).slice(0, 3));
+          console.warn(`Batch ${Math.floor(i/detailBatchSize) + 1}: ${failed.length} detail fetch failed`, failed.map(f => f.error?.message).slice(0, 3));
         }
         const saveResult = await customerController._saveBatch(valid, branchId);
         saved += saveResult.saved;
         errors += saveResult.errors + failed.length;
-        if (i + batchSize < customersToSync.length) await new Promise(r => setTimeout(r, batchDelay));
+        if (i + detailBatchSize < customersToSync.length && batchDelay > 0) {
+          await new Promise(r => setTimeout(r, batchDelay));
+        }
       }
 
       return reply.send({ success: true, saved, errors });
