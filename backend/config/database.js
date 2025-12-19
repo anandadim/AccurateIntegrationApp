@@ -402,80 +402,81 @@ const initialize = async () => {
       console.log('⚠️ Migration error (non-critical):', migrationError.message);
     }
 
-              // -- Sales Receipts Header Table
+    // -- Sales Receipts Header Table
     await client.query(`
-
-    CREATE TABLE IF NOT EXISTS sales_receipts (
-      id SERIAL PRIMARY KEY,
-      receipt_id BIGINT UNIQUE NOT NULL,
-      receipt_number VARCHAR(50) NOT NULL,
-      branch_id VARCHAR(50) NOT NULL,
-      branch_name VARCHAR(255),
-      
-      -- Journal reference
-      journal_id BIGINT,
-      
-      -- Dates
-      trans_date DATE,
-      cheque_date DATE,
-      
-      -- Customer
-      customer_id VARCHAR(50),
-      customer_name VARCHAR(255),
-      
-      -- Bank / Cash account
-      bank_id VARCHAR(50),
-      bank_name VARCHAR(255),
-      
-      -- Amounts
-      total_payment DECIMAL(15,2) DEFAULT 0,
-      over_pay DECIMAL(15,2) DEFAULT 0,
-      use_credit BOOLEAN DEFAULT FALSE,
-      
-      -- Payment info
-      payment_method VARCHAR(50),
-      cheque_no VARCHAR(100),
-      description TEXT,
-      
-      -- Status (derived from first invoice detail)
-      invoice_status VARCHAR(50),
-      
-      -- User info
-      created_by VARCHAR(50),
-      
-      -- Metadata
-      opt_lock INTEGER DEFAULT 0,
-      raw_data JSONB,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );  
+      CREATE TABLE IF NOT EXISTS sales_receipts (
+        id SERIAL PRIMARY KEY,
+        receipt_id BIGINT NOT NULL,
+        receipt_number VARCHAR(50) NOT NULL,
+        branch_id VARCHAR(50) NOT NULL,
+        branch_name VARCHAR(255),
+        
+        -- Journal reference
+        journal_id BIGINT,
+        
+        -- Dates
+        trans_date DATE,
+        cheque_date DATE,
+        
+        -- Customer
+        customer_id VARCHAR(50),
+        customer_name VARCHAR(255),
+        
+        -- Bank / Cash account
+        bank_id VARCHAR(50),
+        bank_name VARCHAR(255),
+        
+        -- Amounts
+        total_payment DECIMAL(15,2) DEFAULT 0,
+        over_pay DECIMAL(15,2) DEFAULT 0,
+        use_credit BOOLEAN DEFAULT FALSE,
+        
+        -- Payment info
+        payment_method VARCHAR(50),
+        cheque_no VARCHAR(100),
+        description TEXT,
+        
+        -- Status (derived from first invoice detail)
+        invoice_status VARCHAR(50),
+        
+        -- User info
+        created_by VARCHAR(50),
+        
+        -- Metadata
+        opt_lock INTEGER DEFAULT 0,
+        raw_data JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(receipt_id,branch_id)
+      );
     `);
 
-          // -- Sales Receipt Items Table
+    // -- Sales Receipt Items Table
     await client.query(`
-    CREATE TABLE IF NOT EXISTS sales_receipt_items (
-      id SERIAL PRIMARY KEY,
-      receipt_id BIGINT NOT NULL,
-      branch_id VARCHAR(50),
-      
-      -- Related invoice info
-      invoice_id BIGINT,
-      invoice_number VARCHAR(50),
-      invoice_date DATE,
-      invoice_total DECIMAL(15,2) DEFAULT 0,
-      invoice_remaining DECIMAL(15,2) DEFAULT 0,
-      
-      -- Allocation values
-      payment_amount DECIMAL(15,2) DEFAULT 0,
-      discount_amount DECIMAL(15,2) DEFAULT 0,
-      paid_amount DECIMAL(15,2) DEFAULT 0,
-      
-      status VARCHAR(50),
-      
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      
-      FOREIGN KEY (receipt_id) REFERENCES sales_receipts(receipt_id) ON DELETE CASCADE
-    );
+      CREATE TABLE IF NOT EXISTS sales_receipt_items (
+        id SERIAL PRIMARY KEY,
+        receipt_id BIGINT NOT NULL,
+        branch_id VARCHAR(50),
+        seq INTEGER,
+        
+        -- Related invoice info
+        invoice_id BIGINT,
+        invoice_number VARCHAR(50),
+        invoice_date DATE,
+        invoice_total DECIMAL(15,2) DEFAULT 0,
+        invoice_remaining DECIMAL(15,2) DEFAULT 0,
+        
+        -- Allocation values
+        payment_amount DECIMAL(15,2) DEFAULT 0,
+        discount_amount DECIMAL(15,2) DEFAULT 0,
+        paid_amount DECIMAL(15,2) DEFAULT 0,
+        
+        status VARCHAR(50),
+        
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(receipt_id,branch_id,seq),
+        FOREIGN KEY (receipt_id,branch_id) REFERENCES sales_receipts(receipt_id,branch_id) ON DELETE CASCADE
+      );
     `);
 
         // -- Indexes for performance

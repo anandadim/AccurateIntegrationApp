@@ -117,7 +117,7 @@ const salesReceiptController = {
       }
 
       const dbReceipts = await salesReceiptModel.getExistingForSync(branchId, dateFrom||today, dateTo||today);
-      const dbMap = new Map(dbReceipts.map(r=>[r.receipt_id,r]));
+      const dbMap = new Map(dbReceipts.map(r=>[parseInt(r.receipt_id),r]));
 
       const newRecs=[], updatedRecs=[], unchangedRecs=[];
       for(const api of allApiItems){

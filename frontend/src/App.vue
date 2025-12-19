@@ -16,6 +16,14 @@
       >
         ↩️ Sales Return Sync
       </button>
+
+      <button 
+        @click="currentView = 'receipt-sync'" 
+        :class="{ active: currentView === 'receipt-sync' }"
+      >
+        📄 Sales Receipt Sync
+      </button>
+
       <button 
         @click="currentView = 'order-sync'" 
         :class="{ active: currentView === 'order-sync' }"
@@ -72,8 +80,10 @@
     <!-- Purchase Invoice Sync View -->
     <PurchaseInvoiceSync v-if="currentView === 'purchase-invoice-sync'" :branches="branches" />
     <PurchaseOrderSync v-if="currentView === 'purchase-order-sync'" :branches="branches" />
-    <!-- Sales Receipt Sync View -->
+    <!-- Sales Return Sync View -->
     <SalesReturnSync v-if="currentView === 'return-sync'" :branches="branches" />
+    <!-- Sales Receipt Sync View -->
+    <SalesReceiptSync v-if="currentView === 'receipt-sync'" :branches="branches" />
 
     
     
@@ -90,7 +100,7 @@
     <GoodsSync v-if="currentView === 'goods-sync'" />
 
     <!-- Goods Table View -->
-    <!-- <GoodsTable v-if="currentView === 'goods-table'" /> --> -->
+    <!-- <GoodsTable v-if="currentView === 'goods-table'" /> --> 
 
     <!-- API Testing View -->
     <div v-if="currentView === 'api'">
