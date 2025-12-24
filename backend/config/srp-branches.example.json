@@ -1,0 +1,15 @@
+{
+  "branches": [
+    {
+      "id": "ALL STORE",
+      "name": "ALL STORE",
+      "baseUrl": "https://api-merch-prod.snjsystem.com/api/merch-api",
+      "locationCode": "ALL STORE",
+      "credentials": {
+        "appKey": "snj-merch",
+        "appToken": "snj:MzC-Kc14mZs"
+      },
+      "active": true
+    }
+  ]
+}

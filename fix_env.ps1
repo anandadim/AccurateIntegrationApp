@@ -1,3 +1,5 @@
+# Fix .env file for PostgreSQL connection
+$envContent = @"
 # Accurate Online API Credentials (Legacy - for single branch)
 ACCURATE_APP_KEY=your_app_key_here
 ACCURATE_SIGNATURE_SECRET=your_signature_secret_here
@@ -8,10 +10,7 @@ SRP_APP_KEY=your_srp_app_key_here
 SRP_APP_TOKEN=your_srp_app_token_here
 
 # SNJ Merch Database (PostgreSQL)
-# Use accurate_130 server or localhost
 SRP_DATABASE_URL=postgresql://postgres:postgres@accurate_130:5432/srp_db
-# Alternative for local testing:
-# SRP_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/srp_db
 
 # Server Config
 PORT=3000
@@ -19,10 +18,8 @@ NODE_ENV=development
 
 # Database - PostgreSQL
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/accurate_db
+"@
 
-# Or use individual params:
-# DB_HOST=localhost
-# DB_PORT=5432
-# DB_NAME=accurate_db
-# DB_USER=postgres
-# DB_PASSWORD=postgres
+# Write to .env file
+$envContent | Out-File -FilePath ".env" -Encoding UTF8
+Write-Host ".env file has been fixed!"

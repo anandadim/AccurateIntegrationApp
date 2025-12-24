@@ -1,16 +1,44 @@
 const { Pool } = require('pg');
+require('dotenv').config();
 
-// Create connection pool
+// Accurate database pool (legacy)
 const pool = new Pool({
-    user: 'postgres',
-  host: 'localhost',
-  database: 'accurate_db',
-  password: 'postgres',
   connectionString: process.env.DATABASE_URL,
   max: 20, // Maximum connections (16 cabang + buffer)
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 10000,
 });
+
+// SNJ Merch database pool
+let srpPool;
+const getSrpPool = () => {
+  if (!srpPool) {
+    let connectionSRP = process.env.SRP_DATABASE_URL;
+    if (!connectionSRP) {
+      throw new Error('SRP_DATABASE_URL is not defined');
+    }
+
+    srpPool = new Pool({
+      connectionString: connectionSRP,
+      max: 10,
+      idleTimeoutMillis: 60000,
+      connectionTimeoutMillis: 10000,
+      query_timeout: 30000,
+      statement_timeout: 30000,
+    });
+
+    srpPool.on('connect', () => {
+      console.log('Connected to SNJ PostgreSQL database');
+    });
+
+    srpPool.on('error', (err) => {
+      console.error('Unexpected error on SNJ idle client', err);
+      process.exit(-1);
+    });
+  }
+
+  return srpPool;
+};
 
 // Test connection
 pool.on('connect', () => {
@@ -982,9 +1010,15 @@ const query = (text, params) => pool.query(text, params);
 // Get a client from pool
 const getClient = () => pool.connect();
 
+const srpQuery = (text, params) => getSrpPool().query(text, params);
+const getSrpClient = () => getSrpPool().connect();
+
 module.exports = {
   pool,
   query,
   getClient,
-  initialize
+  initialize,
+  getSrpPool,
+  srpQuery,
+  getSrpClient,
 };

@@ -14,6 +14,92 @@ const apiService = {
     const response = await axios.post(`${API_BASE}${url}`, data);
     return response.data;
   },
+
+  // === SNJ Merch (SRP) Item Enquiry ===
+  async getSrpBranches() {
+    const response = await axios.get(`${API_BASE}/srp/branches`)
+    return response.data
+  },
+
+  async reloadSrpBranches() {
+    const response = await axios.post(`${API_BASE}/srp/branches/reload`)
+    return response.data
+  },
+
+  async syncSrpInventory(options = {}) {
+    const {
+      branchId,
+      locationCode,
+      articleCodes,
+      perPage,
+      maxPages,
+      pageDelay,
+      truncateBeforeInsert,
+      endpoint,
+    } = options
+
+    const payload = {}
+
+    if (branchId) {
+      payload.branchId = branchId
+    }
+
+    if (locationCode) {
+      payload.locationCode = locationCode
+    }
+
+    if (endpoint) {
+      payload.endpoint = endpoint
+    }
+
+    if (articleCodes && articleCodes.length) {
+      payload.articleCodes = Array.isArray(articleCodes) ? articleCodes : String(articleCodes)
+    }
+    if (perPage) payload.perPage = perPage
+    if (maxPages !== undefined && maxPages !== null) payload.maxPages = maxPages
+    if (pageDelay) payload.pageDelay = pageDelay
+    if (typeof truncateBeforeInsert === 'boolean') payload.truncateBeforeInsert = truncateBeforeInsert
+
+    const response = await axios.post(`${API_BASE}/srp/item-enquiry/sync`, payload)
+    return response.data
+  },
+
+  async fetchSrpSalesDetail({ branchId, storeCode, dateFrom, dateTo } = {}) {
+    const params = {}
+
+    if (branchId) params.branchId = branchId
+    if (storeCode) params.storeCode = storeCode
+    if (dateFrom) params.dateFrom = dateFrom
+    if (dateTo) params.dateTo = dateTo
+
+    const response = await axios.get(`${API_BASE}/srp/sales-detail`, { params })
+    return response.data
+  },
+
+  async syncSrpSalesDetail(options = {}) {
+    const {
+      branchId,
+      storeCode,
+      dateFrom,
+      dateTo,
+      chunkSizeDays,
+      delayMs,
+      truncateBeforeInsert,
+    } = options
+
+    const payload = {}
+
+    if (branchId) payload.branchId = branchId
+    if (storeCode) payload.storeCode = storeCode
+    if (dateFrom) payload.dateFrom = dateFrom
+    if (dateTo) payload.dateTo = dateTo
+    if (chunkSizeDays) payload.chunkSizeDays = chunkSizeDays
+    if (delayMs) payload.delayMs = delayMs
+    if (typeof truncateBeforeInsert === 'boolean') payload.truncateBeforeInsert = truncateBeforeInsert
+
+    const response = await axios.post(`${API_BASE}/srp/sales-detail/sync`, payload)
+    return response.data
+  },
   async getBranches(reload = false) {
     try {
       const params = reload ? { reload: 'true' } : {}

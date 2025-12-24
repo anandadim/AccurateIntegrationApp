@@ -1,0 +1,37 @@
+{
+  "branches": [
+    {
+      "id": "019",
+      "name": "TDN Cibinong",
+      "baseUrl": "https://api-merch-prod.snjsystem.com/api/merch-api",
+      "locationCode": "019",
+      "credentials": {
+        "appKey": "snj-merch",
+        "appToken": "snj:MzC-Kc14mZs"
+      },
+      "active": true
+    },
+     {
+      "id": "020",
+      "name": "TDN Cileungsi",
+      "baseUrl": "https://api-merch-prod.snjsystem.com/api/merch-api",
+      "locationCode": "020",
+      "credentials": {
+        "appKey": "snj-merch",
+        "appToken": "snj:MzC-Kc14mZs"
+      },
+      "active": true
+    },
+    {
+      "id": "021",
+      "name": "TDN Gracia Boulevard Bintaro",
+      "baseUrl": "https://api-merch-prod.snjsystem.com/api/merch-api",
+      "locationCode": "021",
+      "credentials": {
+        "appKey": "snj-merch",
+        "appToken": "snj:MzC-Kc14mZs"
+      },
+      "active": true
+    }
+  ]
+}

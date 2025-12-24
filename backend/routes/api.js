@@ -7,6 +7,7 @@ const customerController = require('../controllers/customerController');
 const salesReceiptController = require('../controllers/salesReceiptController');
 const purchaseOrderController = require('../controllers/purchaseOrderController');
 const salesReturnController = require('../controllers/salesReturnController');
+const srpController = require('../controllers/srpController');
 
 
 async function routes(fastify, options) {
@@ -175,6 +176,26 @@ async function routes(fastify, options) {
   
   // Get summary statistics
   fastify.get('/purchase-invoices/summary/stats', purchaseInvoiceController.getSummary);
+
+  // === SNJ Merch Item Enquiry Endpoints ===
+
+  fastify.get('/srp/branches', srpController.getBranches);
+  fastify.post('/srp/branches/reload', srpController.reloadBranches);
+
+  // Inventory by location
+  fastify.get('/srp/item-enquiry/by-location', srpController.fetchInventoryByLocation);
+  fastify.get('/srp/item-enquiry/by-location/all', srpController.fetchInventoryByLocationAll);
+
+  // Inventory by storage location
+  fastify.get('/srp/item-enquiry/by-storage-location', srpController.fetchInventoryByStorage);
+  fastify.get('/srp/item-enquiry/by-storage-location/all', srpController.fetchInventoryByStorageAll);
+
+  // Sync inventory to database
+  fastify.post('/srp/item-enquiry/sync', srpController.syncInventory);
+
+  // Sales detail endpoints
+  fastify.get('/srp/sales-detail', srpController.fetchSalesDetail);
+  fastify.post('/srp/sales-detail/sync', srpController.syncSalesDetail);
 
 
 }

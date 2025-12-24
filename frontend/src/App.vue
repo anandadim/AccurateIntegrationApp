@@ -43,6 +43,18 @@
         📝 Purchase Order Sync
       </button>
       <button 
+        @click="currentView = 'srp-inventory-sync'" 
+        :class="{ active: currentView === 'srp-inventory-sync' }"
+      >
+        🏪 SNJ Inventory Sync
+      </button>
+      <button 
+        @click="currentView = 'srp-sales-sync'" 
+        :class="{ active: currentView === 'srp-sales-sync' }"
+      >
+        🧾 SNJ Sales Sync
+      </button>
+      <button 
         @click="currentView = 'customer-sync'" 
         :class="{ active: currentView === 'customer-sync' }"
       >
@@ -80,6 +92,8 @@
     <!-- Purchase Invoice Sync View -->
     <PurchaseInvoiceSync v-if="currentView === 'purchase-invoice-sync'" :branches="branches" />
     <PurchaseOrderSync v-if="currentView === 'purchase-order-sync'" :branches="branches" />
+    <SrpInventorySync v-if="currentView === 'srp-inventory-sync'" />
+    <SrpSalesSync v-if="currentView === 'srp-sales-sync'" />
     <!-- Sales Return Sync View -->
     <SalesReturnSync v-if="currentView === 'return-sync'" :branches="branches" />
     <!-- Sales Receipt Sync View -->
@@ -227,6 +241,8 @@ import ItemSync from './components/ItemSync.vue'
 import CustomerSync from './components/CustomerSync.vue'
 import SalesReturnSync from './components/SalesReturnSync.vue'
 import PurchaseOrderSync from './components/PurchaseOrderSync.vue'
+import SrpInventorySync from './components/SrpInventorySync.vue'
+import SrpSalesSync from './components/SrpSalesSync.vue'
 // import GoodsSync from './components/GoodsSync.vue'
 // import GoodsTable from './components/GoodsTable.vue'
 
@@ -243,8 +259,10 @@ export default {
     ItemSync,
     SalesReturnSync,
     PurchaseOrderSync,
-    // GoodsSync,
-    // GoodsTable
+    SrpInventorySync,
+    SrpSalesSync,
+    SalesReturnSync,
+    SalesReceiptSync,
   },
   setup() {
     const currentView = ref('invoice-sync')
