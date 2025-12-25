@@ -1,0 +1,414 @@
+SNJ Merch API Documentation
+Overview
+The SNJ Merch API provides endpoints to retrieve inventory data and sales transaction details. It includes functionality for item enquiry (inventory data grouped by location or storage location) and sales detail export (detailed sales transaction data).
+Version: 1.1
+Base Path: /api/merch-api
+Authentication: Required
+________________________________________
+Base URL
+•	Production: https://api-merch-prod.snjsystem.com/api/merch-api
+•	Demo: https://api-merch-demo.snjsystem.com/api/merch-api
+________________________________________
+Authentication
+All endpoints require authentication; include the authentication token in the request header:
+Header:
+PROD: 
+AppKey: snj-merch
+AppToken: snj:MzC-Kc14mZs	Demo: 
+AppKey: snj-merch
+AppToken: snj:DcX-McX12a
+________________________________________
+Base URL
+Production: https://api-merch-prod.snjsystem.com/api/merch-api
+Demo: https://api-merch-demo.snjsystem.com/api/merch-api
+________________________________________
+Endpoints
+1. Item Enquiry APIs
+1.1 Get Inventory by Location
+Returns inventory data grouped by item and location for a specific location.
+Endpoint: GET /item-enquiry/by-location
+Request Parameters
+Parameter	Type	Required	Description
+location_code	string	Yes	The code of the location to query
+article_codes	string	No	Comma-separated list of article codes to filter by
+per_page	integer	No	Number of items per page (default: 25)
+page	integer	No	Page number for pagination (default: 1)
+Request Example
+GET /item-enquiry/by-location?location_code=STORE001&article_codes=ITEM001,ITEM002,ITEM003&per_page=25&page=1
+Response Structure
+Success Response (200 OK):
+{
+  "error": false,
+  "inventories": {
+    "data": [
+      {
+        "item_id": 123,
+        "item_article_code": "ITEM001",
+        "item_name": "Product Name",
+        "item_uom": "PCS",
+        "location_id": 1,
+        "location_code": "STORE001",
+        "location_name": "Store Name",
+        "total_current_stock": 150.5,
+        "mav": 25.50,
+        "value": 3837.75
+      }
+    ],
+    "current_page": 1,
+    "per_page": 25,
+    "total": 100,
+    "last_page": 4,
+    "from": 1,
+    "to": 25
+  }
+}
+Error Responses:
+422 Unprocessable Entity - Missing required parameter:
+{
+  "error": true,
+  "error_message": "The location_code parameter is required",
+  "errors": {
+    "location_code": ["The location code field is required."]
+  }
+}
+404 Not Found - Location not found:
+{
+  "error": true,
+  "error_message": "Location not found with the provided location_code"
+}
+500 Internal Server Error:
+{
+  "error": true,
+  "error_message": "An error occurred while fetching inventory data",
+  "inventories": []
+}
+Response Fields
+Field	Type	Description
+item_id	integer	Unique identifier of the item/article
+item_article_code	string	Product Look-Up code (article code)
+item_name	string	Name/description of the item
+item_uom	string	Base unit of measure
+location_id	integer	Unique identifier of the location
+location_code	string	Code of the location
+location_name	string	Name of the location
+total_current_stock	float	Total current stock quantity for the item at this location
+mav	float	Moving Average Cost (MAC) of the item
+value	float	Total value (mav × total_current_stock)
+Business Logic
+•	Only returns items that exist in assortments (type: ‘selling’ or ‘purchasing’) for the specified location
+•	Excludes soft-deleted items and locations
+•	Calculates Moving Average Cost (MAV) for each item-location combination
+•	Groups inventory by item and location
+________________________________________
+1.2 Get Inventory by Storage Location
+Returns inventory data grouped by item and storage location for a specific location. Shows one line per item per storage location.
+Endpoint: GET /item-enquiry/by-storage-location
+Request Parameters
+Parameter	Type	Required	Description
+location_code	string	Yes	The code of the location to query
+article_codes	string	No	Comma-separated list of article codes to filter by
+per_page	integer	No	Number of items per page (default: 25)
+page	integer	No	Page number for pagination (default: 1)
+Request Example
+GET /item-enquiry/by-storage-location?location_code=STORE001&article_codes=ITEM001,ITEM002,ITEM003&per_page=25&page=1
+Response Structure
+Success Response (200 OK):
+{
+  "error": false,
+  "inventories": {
+    "data": [
+      {
+        "item_id": 123,
+        "item_article_code": "ITEM001",
+        "item_name": "Product Name",
+        "item_uom": "PCS",
+        "location_id": 1,
+        "location_code": "STORE001",
+        "location_name": "Store Name",
+        "storage_location_id": 10,
+        "storage_location_code": "SL001",
+        "storage_location_name": "Storage Location Name",
+        "total_current_stock": 50.0,
+        "mav": 25.50,
+        "value": 1275.00
+      }
+    ],
+    "current_page": 1,
+    "per_page": 25,
+    "total": 50,
+    "last_page": 2,
+    "from": 1,
+    "to": 25
+  }
+}
+Error Responses:
+422 Unprocessable Entity - Missing required parameter:
+{
+  "error": true,
+  "error_message": "The location_code parameter is required",
+  "errors": {
+    "location_code": ["The location code field is required."]
+  }
+}
+404 Not Found - Location not found:
+{
+  "error": true,
+  "error_message": "Location not found with the provided location_code"
+}
+500 Internal Server Error:
+{
+  "error": true,
+  "error_message": "An error occurred while fetching inventory data",
+  "inventories": []
+}
+Response Fields
+Field	Type	Description
+item_id	integer	Unique identifier of the item/article
+item_article_code	string	Product Look-Up code (article code)
+item_name	string	Name/description of the item
+item_uom	string	Base unit of measure
+location_id	integer	Unique identifier of the location
+location_code	string	Code of the location
+location_name	string	Name of the location
+storage_location_id	integer	Unique identifier of the storage location
+storage_location_code	string	Code of the storage location
+storage_location_name	string	Name of the storage location
+total_current_stock	float	Total current stock quantity for the item at this storage location
+mav	float	Moving Average Cost (MAC) of the item
+value	float	Total value (mav × total_current_stock)
+Business Logic
+•	Only returns items that exist in assortments (type: ‘selling’ or ‘purchasing’) for the specified location
+•	Excludes soft-deleted items, locations, and storage locations
+•	Calculates Moving Average Cost (MAV) for each item-location combination
+•	Groups inventory by item and storage location
+•	Shows detailed breakdown by storage location within the specified location
+________________________________________
+2. Sales Detail Export API
+2.1 Get Sales Detail Export Data
+Returns detailed sales transaction data for the specified date range and store code. This endpoint returns the same data structure as the sales detail report, including all transaction details, item information, and financial metrics.
+Endpoint: GET /sales-detail/export-data
+Request Parameters
+Parameter	Type	Required	Description
+date_from	date	Yes	Start date for the report (format: YYYY-MM-DD)
+date_to	date	Yes	End date for the report (format: YYYY-MM-DD)
+store_code	string	Yes	Store code to filter by (use “All Stores” to get all stores)
+Request Example
+GET /sales-detail/export-data?date_from=2025-12-01&date_to=2024-01-31&store_code=STORE001
+Response Structure
+Success Response (200 OK):
+{
+  "error": false,
+  "data": [
+    {
+      "id": 1,
+      "trans_type": "Sale",
+      "org_code_name": "STORE001",
+      "bill_no": "BILL-001",
+      "cashier": "John Doe",
+      "pos_machine": "POS-01",
+      "shift_name": "Morning",
+      "shift_label": "Morning Shift",
+      "bill_no_other_incomes": 0.00,
+      "bill_date_time": "2024-01-15 10:30:00",
+      "sales_date": "2024-01-15",
+      "sales_type": "Retail",
+      "cust_name": "Customer Name",
+      "cust_phone": "1234567890",
+      "item_code": "ITEM001",
+      "barcode": "1234567890123",
+      "item_name": "Product Name",
+      "item_long_name": "Product Long Description",
+      "department": "Electronics",
+      "category": "Mobile Phones",
+      "class": "Smartphones",
+      "vendor": "Vendor Name",
+      "location": "Warehouse A",
+      "unit": "PCS",
+      "unit_cost_price": 50.00,
+      "unit_sell_price": 100.00,
+      "qty": 2.000,
+      "customer_paid_amount": 200.00,
+      "gross_amount": 200.00,
+      "net_amount": 180.00,
+      "discount_dtl": 20.00,
+      "gross_sell": 200.00,
+      "tax": 18.00,
+      "net_sales": 180.00,
+      "cost": 100.00,
+      "margin": 80.00,
+      "gpm": "44.44%",
+      "created_at": "2024-01-15T10:30:00.000000Z",
+      "updated_at": "2024-01-15T10:30:00.000000Z"
+    }
+  ],
+  "total_records": 1,
+  "totals": {
+      "total_quantity": 2.000,
+      "total_gross_amount": 200.00,
+      "total_net_amount": 180.00,
+      "total_discount_dtl": 20.00,
+      "total_gross_sell": 200.00,
+      "total_tax": 18.00,
+      "total_net_sales": 180.00,
+      "total_cost": 100.00,
+      "total_margin": 80.00,
+      "total_gpm": "44.44%"
+   }
+}
+Error Responses:
+422 Unprocessable Entity - Validation errors:
+{
+  "error": true,
+  "error_message": "Validation failed",
+  "errors": {
+    "date_from": ["Date from is required"],
+    "date_to": ["Date to must be a valid date"],
+    "store_code": ["Store code is required"]
+  }
+}
+500 Internal Server Error:
+{
+  "error": true,
+  "error_message": "An error occurred while fetching sales detail data",
+  "data": []
+}
+Response Fields
+Field	Type	Description
+id	integer	Unique identifier of the record
+trans_type	string	Transaction type (e.g., “Sale”, “Refund”)
+org_code_name	string	Organization/store code name
+bill_no	string	Bill/Receipt number
+cashier	string	Cashier name
+pos_machine	string	POS machine identifier
+shift_name	string	Shift name
+shift_label	string	Shift label/description
+bill_no_other_incomes	decimal	Other income amount for the bill
+bill_date_time	datetime	Date and time of the bill transaction
+sales_date	date	Sales date (YYYY-MM-DD)
+sales_type	string	Type of sale (e.g., “Retail”, “Wholesale”)
+cust_name	string	Customer name (nullable)
+cust_phone	string	Customer phone number (nullable)
+item_code	string	Item/article code
+barcode	string	Item barcode (nullable)
+item_name	string	Item name (nullable)
+item_long_name	text	Item long description (nullable)
+department	string	Department name (nullable)
+category	string	Category name (nullable)
+class	string	Class name (nullable)
+vendor	string	Vendor name (nullable)
+location	string	Location/warehouse name (nullable)
+unit	string	Unit of measure (nullable)
+unit_cost_price	decimal	Unit cost price
+unit_sell_price	decimal	Unit selling price
+qty	decimal	Quantity sold
+customer_paid_amount	decimal	Amount paid by customer
+gross_amount	decimal	Gross amount before discounts
+net_amount	decimal	Net amount after discounts
+discount_dtl	decimal	Discount amount
+gross_sell	decimal	Gross selling amount
+tax	decimal	Tax amount
+net_sales	decimal	Net sales amount
+cost	decimal	Total cost
+margin	decimal	Profit margin
+gpm	string	Gross Profit Margin percentage (e.g., “44.44%”)
+created_at	datetime	Record creation timestamp
+updated_at	datetime	Record last update timestamp
+Totals section
+Field Name	Data Type	Description
+total_quantity	Decimal	Sum of all item quantities (qty).
+total_gross_amount	Decimal	Total gross amount from all records.
+total_net_amount	Decimal	Total net amount after adjustments.
+total_discount_dtl	Decimal	Total discount amount applied.
+total_gross_sell	Decimal	Total gross selling amount.
+total_tax	Decimal	Total tax amount.
+total_net_sales	Decimal	Total net sales amount.
+total_cost	Decimal	Total cost of all items.
+total_margin	Decimal	Total margin calculated from net sales minus cost.
+total_gpm	String	Gross Profit Margin (GPM) percentage, calculated as (total_margin / total_net_sales) × 100 (example: 44.44%).
+
+Business Logic
+•	Data Population: The API automatically populates missing data for the specified date range using the PosSalesDetailService. If data for certain dates doesn’t exist, it will be generated before returning results.
+•	Data Refresh: Data for today’s date is refreshed every 10 minutes to ensure the most current information is available.
+•	Ordering: Results are ordered by:
+1.	Sales date (ascending)
+2.	Bill number (ascending)
+3.	Item code (ascending)
+•	Store Filtering:
+–	If store_code is provided (not “All Stores”), only data for that specific store is returned
+–	If store_code is “All Stores”, data for all stores is returned
+•	Date Range: The API supports date ranges up to the current date. 
+________________________________________
+Common Features
+Pagination
+Item Enquiry endpoints support pagination using Laravel’s built-in pagination:
+•	page: The page number (default: 1)
+•	per_page: Number of items per page (default: 25)
+The response includes pagination metadata: - current_page: Current page number - per_page: Items per page - total: Total number of items - last_page: Last page number - from: Starting item number - to: Ending item number
+Filtering
+Article/Item Filtering
+Item Enquiry endpoints support filtering by article codes using the article_codes parameter:
+•	Format: Comma-separated list of article codes
+•	Example: article_codes=ITEM001,ITEM002,ITEM003,ITEM004
+•	Empty values are automatically filtered out
+•	Article codes are converted to article IDs internally. If an article code doesn’t exist, it will be silently ignored
+Date Format
+All dates must be provided in the format: YYYY-MM-DD
+Examples: - 2025-12-01 (December 1, 2025) - 2025-12-02 (December 2, 2025)
+Store Code
+The store_code parameter (for Sales Detail Export) accepts: - A specific store code (e.g., “STORE001”, “STORE002”) - "All Stores" (case-sensitive) to retrieve data for all stores
+Error Handling
+All endpoints follow a consistent error response format:
+{
+  "error": true,
+  "error_message": "Human-readable error message",
+  "errors": {} // Optional: Validation errors
+}
+Common HTTP status codes: - 200: Success - 400: Bad Request - 403: Forbidden (access denied) - 404: Not Found - 422: Unprocessable Entity (validation errors) - 500: Internal Server Error
+________________________________________
+Example Usage
+cURL Examples
+Get inventory by location:
+curl -X GET "<base_url>/item-enquiry/by-location?location_code=STORE001&per_page=50" \
+  -H "AppKey: {your_app_key}" \
+  -H "AppToken: {your_app_token}" \
+  -H "Content-Type: application/json"
+Get inventory by storage location with item filter:
+curl -X GET "<base_url>/item-enquiry/by-storage-location?location_code=STORE001&article_codes=ITEM001,ITEM002,ITEM003&page=2" \
+  -H "AppKey: {your_app_key}" \
+  -H "AppToken: {your_app_token}" \
+  -H "Content-Type: application/json"
+Get sales detail for a specific store:
+curl -X GET "<base_url>/sales-detail/export-data?date_from=2025-12-01&date_to=2024-01-31&store_code=STORE001" \
+  -H "AppKey: {your_app_key}" \
+  -H "AppToken: {your_app_token}" \
+  -H "Content-Type: application/json"
+Get sales detail for all stores:
+curl -X GET "<base_url>/sales-detail/export-data?date_from=2025-12-01&date_to=2024-01-31&store_code=All%20Stores" \
+  -H "AppKey: {your_app_key}" \
+  -H "AppToken: {your_app_token}" \
+  -H "Content-Type: application/json"
+________________________________________
+Performance Considerations
+Item Enquiry APIs
+•	Results are paginated by default (25 items per page) to optimize performance
+•	Large result sets should be retrieved using pagination
+Sales Detail Export API
+1.	Large Date Ranges: For large date ranges (e.g., 1 year), the API may take longer to respond as it needs to populate missing data. Consider breaking large ranges into smaller chunks.
+2.	Data Population: The first request for a date range may take longer as it populates the flat table. Subsequent requests for the same date range will be faster.
+3.	Today’s Data: Data for today is updated every 10 minutes, which may add slight delay to requests that include today’s date.
+________________________________________
+Notes
+Item Enquiry APIs
+1.	Location Code vs Location ID: These endpoints use location_code (string) instead of location_ids (comma-separated IDs) for better integration with external systems that may only have location codes.
+2.	Article Code vs Article ID: These endpoints use article_codes (comma-separated article codes) instead of article_ids for better integration with external systems that may only have article codes. Article codes are automatically converted to article IDs internally.
+3.	Moving Average Cost (MAV): The MAV is calculated using the MovingAverageCostService and represents the current moving average cost of the item at the location.
+4.	Assortment Filtering: Only items that are part of the location’s assortment (with type ‘selling’ or ‘purchasing’) are returned.
+Sales Detail Export API
+1.	Data Source: The API retrieves data from the report_sales_details flat table, which is optimized for reporting and export purposes.
+2.	Real-time Data: Data for today is updated every 10 minutes. Historical data (before today) is cached for performance.
+3.	Store Code Format: Store codes are case-sensitive. Ensure you use the exact store code as stored in the system.
+4.	Date Range: The date range is inclusive. Both date_from and date_to are included in the results.
+5.	Ordering: Results are always ordered by sales date, bill number, and item code to ensure consistent output.
+________________________________________
+Support
+For issues or questions regarding this API, please contact the development team or refer to the main API documentation.
