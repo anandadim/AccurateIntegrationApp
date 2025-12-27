@@ -260,6 +260,28 @@ const initialize = async () => {
       )
     `);
 
+    // Add missing columns to purchase_invoice_items if they don't exist
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                      WHERE table_name='purchase_invoice_items' AND column_name='detail_id') THEN
+          ALTER TABLE purchase_invoice_items 
+          ADD COLUMN detail_id BIGINT;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                      WHERE table_name='purchase_invoice_items' AND column_name='invoice_number') THEN
+          ALTER TABLE purchase_invoice_items 
+          ADD COLUMN invoice_number VARCHAR(50);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                      WHERE table_name='purchase_invoice_items' AND column_name='seq') THEN
+          ALTER TABLE purchase_invoice_items 
+          ADD COLUMN seq INTEGER;
+        END IF;
+      END $$;
+    `);
+
     // Create indexes for purchase invoices
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_purchase_invoices_branch 
