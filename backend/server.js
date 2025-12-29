@@ -2,6 +2,7 @@ require('dotenv').config();
 const fastify = require('fastify')({ logger: true });
 const cors = require('@fastify/cors');
 const db = require('./config/database');
+const { initScheduler } = require('./services/scheduler');
 
 // Register CORS
 fastify.register(cors, {
@@ -32,6 +33,9 @@ const start = async () => {
   try {
     // Initialize database
     await db.initialize();
+    
+    // Initialize scheduler
+    initScheduler();
     
     const port = process.env.PORT || 3000;
     await fastify.listen({ port, host: '0.0.0.0' });

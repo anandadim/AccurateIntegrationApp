@@ -225,6 +225,7 @@
     </div>
     </div>
   </div>
+  <SrpActivityTicker />
 </template>
 
 <script>
@@ -243,6 +244,7 @@ import SalesReturnSync from './components/SalesReturnSync.vue'
 import PurchaseOrderSync from './components/PurchaseOrderSync.vue'
 import SrpInventorySync from './components/SrpInventorySync.vue'
 import SrpSalesSync from './components/SrpSalesSync.vue'
+import SrpActivityTicker from './components/SrpActivityTicker.vue'
 // import GoodsSync from './components/GoodsSync.vue'
 // import GoodsTable from './components/GoodsTable.vue'
 
@@ -261,6 +263,7 @@ export default {
     PurchaseOrderSync,
     SrpInventorySync,
     SrpSalesSync,
+    SrpActivityTicker,
     SalesReturnSync,
     SalesReceiptSync,
   },

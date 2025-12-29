@@ -1,4 +1,10 @@
 const srpService = require('../services/srpService');
+const {
+  getSchedulerStatus,
+  pauseScheduler,
+  resumeScheduler,
+} = require('../services/scheduler');
+const { getRecentLogs } = require('../models/srpFetchLogRepository');
 
 const handleSuccess = (reply, data) => {
   reply.send({
@@ -24,6 +30,60 @@ const srpController = {
       handleSuccess(reply, branches);
     } catch (error) {
       handleError(reply, error, 'Failed to get SNJ branches');
+    }
+  },
+
+  async getSchedulerStatus(req, reply) {
+    try {
+      const status = getSchedulerStatus();
+      handleSuccess(reply, status);
+    } catch (error) {
+      handleError(reply, error, 'Failed to get scheduler status');
+    }
+  },
+
+  async pauseScheduler(req, reply) {
+    try {
+      const status = pauseScheduler();
+      handleSuccess(reply, status);
+    } catch (error) {
+      handleError(reply, error, 'Failed to pause scheduler');
+    }
+  },
+
+  async resumeScheduler(req, reply) {
+    try {
+      const status = resumeScheduler();
+      handleSuccess(reply, status);
+    } catch (error) {
+      handleError(reply, error, 'Failed to resume scheduler');
+    }
+  },
+
+  async getFetchLogs(req, reply) {
+    try {
+      const { limit, status } = req.query || {};
+      let statuses = null;
+
+      if (status) {
+        if (Array.isArray(status)) {
+          statuses = status.map((item) => String(item).trim()).filter(Boolean);
+        } else {
+          statuses = String(status)
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean);
+        }
+      }
+
+      const logs = await getRecentLogs({
+        limit: limit ? Number(limit) : undefined,
+        statuses: statuses && statuses.length ? statuses : null,
+      });
+
+      handleSuccess(reply, logs);
+    } catch (error) {
+      handleError(reply, error, 'Failed to get SRP scheduler logs');
     }
   },
 
