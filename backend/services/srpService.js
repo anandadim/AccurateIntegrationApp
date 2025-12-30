@@ -31,9 +31,29 @@ const clearBranchesConfigCache = () => {
   console.log('🔄 SNJ branch cache cleared');
 };
 
+const normalizeCode = (value) => (value != null ? String(value).trim() : null);
+
+const normalizeBranchConfig = (branch = {}) => {
+  if (!branch) return null;
+
+  return {
+    id: branch.id || null,
+    name: branch.name || null,
+    baseUrl: branch.baseUrl || DEFAULT_SRP_BASE_URL,
+    credentials: branch.credentials || {},
+    locationCode: normalizeCode(branch.locationCode),
+    storageLocationCode: normalizeCode(branch.storageLocationCode),
+    storeCode: normalizeCode(branch.storeCode) || normalizeCode(branch.locationCode),
+    active: branch.active !== false,
+  };
+};
+
 const getActiveBranchConfigs = (forceReload = false) => {
   const config = loadBranchesConfig(forceReload);
-  const active = (config.branches || []).filter(branch => branch.active);
+  const active = (config.branches || [])
+    .filter(branch => branch && branch.active)
+    .map(normalizeBranchConfig)
+    .filter(Boolean);
 
   if (active.length > 0) {
     return active;
@@ -46,18 +66,21 @@ const getActiveBranchConfigs = (forceReload = false) => {
     return [];
   }
 
-  return [{
-    id: 'default',
-    name: 'Default SNJ Branch',
-    baseUrl: process.env.SNJ_MERCH_BASE_URL || DEFAULT_SRP_BASE_URL,
-    credentials: {
-      appKey: envAppKey,
-      appToken: envAppToken,
-    },
-    locationCode: process.env.SRP_DEFAULT_LOCATION || null,
-    storageLocationCode: null,
-    active: true,
-  }];
+  return [
+    normalizeBranchConfig({
+      id: 'default',
+      name: 'Default SNJ Branch',
+      baseUrl: process.env.SNJ_MERCH_BASE_URL || DEFAULT_SRP_BASE_URL,
+      credentials: {
+        appKey: envAppKey,
+        appToken: envAppToken,
+      },
+      locationCode: process.env.SRP_DEFAULT_LOCATION || null,
+      storageLocationCode: null,
+      storeCode: process.env.SRP_DEFAULT_STORE_CODE || process.env.SRP_DEFAULT_LOCATION || null,
+      active: true,
+    }),
+  ];
 };
 
 const getBranchConfig = (branchId) => {
@@ -65,24 +88,18 @@ const getBranchConfig = (branchId) => {
   const branch = branchId ? activeBranches.find(item => item.id === branchId) : activeBranches[0];
 
   if (branch) {
-    const normalizedLocationCode = branch.locationCode != null
-      ? String(branch.locationCode).trim()
-      : null;
-    const normalizedStorageLocationCode = branch.storageLocationCode != null
-      ? String(branch.storageLocationCode).trim()
-      : null;
-
     return {
       id: branch.id,
       name: branch.name,
       baseUrl: branch.baseUrl || DEFAULT_SRP_BASE_URL,
       credentials: branch.credentials || {},
-      locationCode: normalizedLocationCode || null,
-      storageLocationCode: normalizedStorageLocationCode || null,
+      locationCode: branch.locationCode || null,
+      storageLocationCode: branch.storageLocationCode || null,
+      storeCode: branch.storeCode || null,
     };
   }
 
-  return {
+  return normalizeBranchConfig({
     id: 'default',
     name: 'Default SNJ Branch',
     baseUrl: DEFAULT_SRP_BASE_URL,
@@ -90,11 +107,11 @@ const getBranchConfig = (branchId) => {
       appKey: process.env.SRP_APP_KEY,
       appToken: process.env.SRP_APP_TOKEN,
     },
-    locationCode: process.env.SRP_DEFAULT_LOCATION
-      ? String(process.env.SRP_DEFAULT_LOCATION).trim() || null
-      : null,
+    locationCode: process.env.SRP_DEFAULT_LOCATION,
     storageLocationCode: null,
-  };
+    storeCode: process.env.SRP_DEFAULT_STORE_CODE || process.env.SRP_DEFAULT_LOCATION || null,
+    active: true,
+  });
 };
 
 const normalizeStoreCode = (value) => (value != null ? String(value).trim() : null);
@@ -366,10 +383,11 @@ const srpService = {
     const branches = getActiveBranchConfigs(forceReload);
 
     return branches
-      .map(({ id, name, locationCode }) => ({
+      .map(({ id, name, locationCode, storeCode }) => ({
         id,
         name,
         locationCode: locationCode != null ? String(locationCode).trim() : null,
+        storeCode: storeCode != null ? String(storeCode).trim() : null,
       }));
   },
 

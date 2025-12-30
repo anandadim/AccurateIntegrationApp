@@ -26,6 +26,34 @@ const apiService = {
     return response.data
   },
 
+  async getSrpLogs(options = {}) {
+    const { limit = 20, status } = options
+    const params = {}
+
+    if (limit) params.limit = limit
+    if (status) {
+      params.status = Array.isArray(status) ? status.join(',') : status
+    }
+
+    const response = await axios.get(`${API_BASE}/srp/logs`, { params })
+    return response.data
+  },
+
+  async getSrpSchedulerStatus() {
+    const response = await axios.get(`${API_BASE}/srp/scheduler/status`)
+    return response.data
+  },
+
+  async pauseSrpScheduler() {
+    const response = await axios.post(`${API_BASE}/srp/scheduler/pause`)
+    return response.data
+  },
+
+  async resumeSrpScheduler() {
+    const response = await axios.post(`${API_BASE}/srp/scheduler/resume`)
+    return response.data
+  },
+
   async syncSrpInventory(options = {}) {
     const {
       branchId,

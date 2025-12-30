@@ -181,6 +181,10 @@ async function routes(fastify, options) {
 
   fastify.get('/srp/branches', srpController.getBranches);
   fastify.post('/srp/branches/reload', srpController.reloadBranches);
+  fastify.get('/srp/logs', srpController.getFetchLogs);
+  fastify.get('/srp/scheduler/status', srpController.getSchedulerStatus);
+  fastify.post('/srp/scheduler/pause', srpController.pauseScheduler);
+  fastify.post('/srp/scheduler/resume', srpController.resumeScheduler);
 
   // Inventory by location
   fastify.get('/srp/item-enquiry/by-location', srpController.fetchInventoryByLocation);
