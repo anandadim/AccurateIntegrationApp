@@ -3,6 +3,7 @@ const {
   getSchedulerStatus,
   pauseScheduler,
   resumeScheduler,
+  runScheduledSync,
 } = require('../services/scheduler');
 const { getRecentLogs } = require('../models/srpFetchLogRepository');
 
@@ -57,6 +58,15 @@ const srpController = {
       handleSuccess(reply, status);
     } catch (error) {
       handleError(reply, error, 'Failed to resume scheduler');
+    }
+  },
+
+  async runSchedulerNow(req, reply) {
+    try {
+      await runScheduledSync();
+      handleSuccess(reply, { message: 'Scheduler run triggered manually' });
+    } catch (error) {
+      handleError(reply, error, 'Failed to run scheduler now');
     }
   },
 

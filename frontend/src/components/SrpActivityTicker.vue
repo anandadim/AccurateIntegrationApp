@@ -157,6 +157,17 @@ export default {
       showFull.value = false
     }
 
+    const triggerRunNow = async () => {
+      try {
+        const response = await apiService.runSrpSchedulerNow()
+        if (response.success) {
+          await fetchLogs()
+        }
+      } catch (err) {
+        schedulerError.value = err.message || 'Failed to run scheduler now'
+      }
+    }
+
     const toggleSchedulerState = async () => {
       if (isSchedulerToggling.value) return
       isSchedulerToggling.value = true
@@ -169,6 +180,9 @@ export default {
         if (response.success) {
           schedulerStatus.value = response.data
           schedulerError.value = ''
+          if (paused) {
+            await triggerRunNow()
+          }
         } else {
           schedulerError.value = response.message || 'Failed to update scheduler'
         }
@@ -250,6 +264,7 @@ export default {
       schedulerPaused,
       schedulerBadge,
       isSchedulerToggling,
+      triggerRunNow,
       formatType,
       resolveIcon,
       formatTime,
