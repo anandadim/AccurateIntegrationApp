@@ -1,0 +1,63 @@
+-- Table: public.sales_invoices
+
+-- DROP TABLE IF EXISTS public.sales_invoices;
+
+CREATE TABLE IF NOT EXISTS public.sales_invoices
+(
+    id integer NOT NULL DEFAULT nextval('sales_invoices_id_seq'::regclass),
+    invoice_id integer NOT NULL,
+    invoice_number character varying(50) COLLATE pg_catalog."default" NOT NULL,
+    branch_id character varying(50) COLLATE pg_catalog."default" NOT NULL,
+    branch_name character varying(100) COLLATE pg_catalog."default",
+    trans_date date NOT NULL,
+    customer_id character varying(50) COLLATE pg_catalog."default",
+    customer_name character varying(255) COLLATE pg_catalog."default",
+    salesman_id character varying(50) COLLATE pg_catalog."default",
+    salesman_name character varying(100) COLLATE pg_catalog."default",
+    warehouse_id character varying(50) COLLATE pg_catalog."default",
+    warehouse_name character varying(100) COLLATE pg_catalog."default",
+    subtotal numeric(15,2),
+    discount numeric(15,2),
+    tax numeric(15,2),
+    total numeric(15,2) NOT NULL,
+    payment_status character varying(20) COLLATE pg_catalog."default" DEFAULT 'UNPAID'::character varying,
+    due_date date,
+    remaining_amount numeric(15,2) NOT NULL DEFAULT 0,
+    raw_data jsonb,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT sales_invoices_pkey PRIMARY KEY (id),
+    CONSTRAINT sales_invoices_invoice_id_branch_id_key UNIQUE (invoice_id, branch_id)
+)
+
+TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS public.sales_invoices
+    OWNER to postgres;
+-- Index: idx_branch_date
+
+-- DROP INDEX IF EXISTS public.idx_branch_date;
+
+CREATE INDEX IF NOT EXISTS idx_branch_date
+    ON public.sales_invoices USING btree
+    (branch_id COLLATE pg_catalog."default" ASC NULLS LAST, trans_date ASC NULLS LAST)
+    WITH (fillfactor=100, deduplicate_items=True)
+    TABLESPACE pg_default;
+-- Index: idx_customer
+
+-- DROP INDEX IF EXISTS public.idx_customer;
+
+CREATE INDEX IF NOT EXISTS idx_customer
+    ON public.sales_invoices USING btree
+    (customer_id COLLATE pg_catalog."default" ASC NULLS LAST)
+    WITH (fillfactor=100, deduplicate_items=True)
+    TABLESPACE pg_default;
+-- Index: idx_invoice_number
+
+-- DROP INDEX IF EXISTS public.idx_invoice_number;
+
+CREATE INDEX IF NOT EXISTS idx_invoice_number
+    ON public.sales_invoices USING btree
+    (invoice_number COLLATE pg_catalog."default" ASC NULLS LAST)
+    WITH (fillfactor=100, deduplicate_items=True)
+    TABLESPACE pg_default;

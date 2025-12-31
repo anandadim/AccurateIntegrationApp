@@ -2,18 +2,32 @@ require('dotenv').config();
 const fastify = require('fastify')({ logger: true });
 const cors = require('@fastify/cors');
 const db = require('./config/database');
-const { initScheduler } = require('./services/scheduler');
+
+// const allowedOrigins = [
+//         'http://170.171.172.216:8080'
+// ];
+
+// fastify.register(cors, {
+//         origin: (origin, cb) => {
+//          if(!origin || allowedOrigins.includes(origin)) {
+//           cb(null, true);
+//         } else {
+//          cb(new Error('Not allowed'), false);
+//         }
+//         }
+// }
+// );
 
 // Register CORS
 fastify.register(cors, {
-  origin: true
+ origin: true
 });
 
 // Add content type parser for JSON
 fastify.addContentTypeParser('application/json', { parseAs: 'string' }, function (req, body, done) {
   try {
     const json = JSON.parse(body);
-    done(null, json);
+   done(null, json);
   } catch (err) {
     err.statusCode = 400;
     done(err, undefined);
@@ -34,10 +48,7 @@ const start = async () => {
     // Initialize database
     await db.initialize();
     
-    // Initialize scheduler
-    initScheduler();
-    
-    const port = process.env.PORT || 3000;
+    const port = process.env.PORT;
     await fastify.listen({ port, host: '0.0.0.0' });
     console.log(`Server running on http://localhost:${port}`);
   } catch (err) {

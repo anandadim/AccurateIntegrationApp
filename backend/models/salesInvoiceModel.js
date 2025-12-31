@@ -66,16 +66,18 @@ const salesInvoiceModel = {
       if (items && items.length > 0) {
         const itemQuery = `
           INSERT INTO sales_invoice_items (
-            invoice_id, branch_id, item_no, item_name,
+            invoice_id, branch_id, seq,item_no, item_name,
             quantity, unit_name, unit_price, discount, amount,
             warehouse_name, salesman_name, item_category
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+         
         `;
 
         for (const item of items) {
           await client.query(itemQuery, [
             invoiceDbId,
             invoiceData.branch_id,
+            item.seq,
             item.item_no,
             item.item_name,
             item.quantity,

@@ -185,6 +185,7 @@ async function routes(fastify, options) {
   fastify.get('/srp/scheduler/status', srpController.getSchedulerStatus);
   fastify.post('/srp/scheduler/pause', srpController.pauseScheduler);
   fastify.post('/srp/scheduler/resume', srpController.resumeScheduler);
+  fastify.post('/srp/scheduler/run-now', srpController.runSchedulerNow);
 
   // Inventory by location
   fastify.get('/srp/item-enquiry/by-location', srpController.fetchInventoryByLocation);

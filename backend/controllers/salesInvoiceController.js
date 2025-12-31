@@ -499,7 +499,8 @@ const salesInvoiceController = {
         }
       } catch (err) {
         const invoiceNum = item.d?.number || item.number || 'unknown';
-        console.error(`❌ Error saving invoice ${invoiceNum}:`, err.message);
+        const invoiceId = item.d?.id || item.id || 'unknown';
+        console.error(`❌ Error saving invoice ${invoiceNum}: ${invoiceId}`, err.message);
         errors.push({ invoice: invoiceNum, error: err.message });
         errorCount++;
       }
@@ -1122,7 +1123,7 @@ const salesInvoiceController = {
             process.stdout.write(`💾 Processed: ${extractedCount}/${invoices.length}\r`);
           }
         } catch (err) {
-          console.error(`❌ Error extracting relations for invoice ${invoice.invoice_number}:`, err.message);
+          console.error(`❌ Error extracting relations for invoice ${invoice.invoice_number}: ${invoice.invoice_id}`, err.message);
           errorCount++;
         }
       }

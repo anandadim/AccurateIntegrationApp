@@ -1,6 +1,7 @@
 import axios from 'axios'
+// const API_BASE = import.meta.env.VITE_API_BASE ?? imort.meta.env.VITE_API_URL ?? '/api';
 
-const API_BASE = '/api'
+ const API_BASE = '/api'
 
 const apiService = {
   // Helper method for GET requests
@@ -51,6 +52,11 @@ const apiService = {
 
   async resumeSrpScheduler() {
     const response = await axios.post(`${API_BASE}/srp/scheduler/resume`)
+    return response.data
+  },
+
+  async runSrpSchedulerNow() {
+    const response = await axios.post(`${API_BASE}/srp/scheduler/run-now`)
     return response.data
   },
 

@@ -1,0 +1,57 @@
+# Panduan Menghapus File Sensitif (.env) dari History GitHub
+
+**PERINGATAN KERAS:** Panduan ini melibatkan penulisan ulang sejarah (history) Git. Lakukan backup folder proyek Anda ke tempat lain sebelum menjalankan perintah ini.
+
+---
+
+## 🚨 LANGKAH 0: GANTI SEMUA PASSWORD (WAJIB)
+Menghapus file dari GitHub **TIDAK** membuat akun Anda aman jika bot/hacker sudah sempat mencatat isinya. Sebelum memperbaiki Git, lakukan ini:
+
+1.  **Ganti Password Database** (PostgreSQL/MySQL).
+2.  **Regenerate API Keys** (Accurate, Google Cloud, AWS, dll).
+3.  **Ganti Secret Keys** (JWT Secret, App Keys).
+
+*Anggap password lama sudah bocor dan tidak aman lagi.*
+
+---
+
+## METODE 1: Mulai Ulang (Paling Mudah & Bersih)
+*Gunakan cara ini jika Anda bekerja sendirian dan tidak keberatan kehilangan riwayat commit (history) sebelumnya.*
+
+1.  **Hapus Folder Git Lokal**
+    * Buka folder proyek di laptop Anda.
+    * Hapus folder tersembunyi bernama `.git`.
+2.  **Hapus Repository di GitHub**
+    * Buka GitHub > Settings > General > Scroll ke bawah > **Delete this repository**.
+3.  **Buat Repository Baru**
+    * Buat repo baru dengan nama yang sama.
+4.  **Upload Ulang (Tanpa .env)**
+    Buka terminal di folder proyek laptop Anda:
+    ```bash
+    # 1. Pastikan .env sudah masuk .gitignore
+    echo ".env" >> .gitignore
+
+    # 2. Inisialisasi ulang
+    git init
+    git add .
+    git commit -m "Initial commit (Clean)"
+    git branch -M main
+
+    # 3. Sambungkan ke repo baru
+    git remote add origin [https://github.com/USERNAME_ANDA/NAMA_REPO.git](https://github.com/USERNAME_ANDA/NAMA_REPO.git)
+    git push -u origin main
+    ```
+
+---
+
+## METODE 2: Hapus History (Advanced)
+*Gunakan cara ini jika Anda ingin mempertahankan history commit lain, tapi ingin menghapus jejak file .env secara spesifik.*
+
+Jalankan perintah berikut secara berurutan di terminal laptop (Git Bash / VS Code Terminal):
+
+### 1. Amankan Gitignore
+Pastikan file `.env` tidak akan ter-upload lagi di masa depan.
+```bash
+echo ".env" >> .gitignore
+git add .gitignore
+git commit -m "Update gitignore security"

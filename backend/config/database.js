@@ -143,6 +143,7 @@ const initialize = async () => {
         id SERIAL PRIMARY KEY,
         invoice_id INTEGER NOT NULL,
         branch_id VARCHAR(50) NOT NULL,
+        seq INTEGER NOT NULL,
         item_no VARCHAR(100) NOT NULL,
         item_name TEXT,
         item_category VARCHAR(100),
@@ -154,7 +155,9 @@ const initialize = async () => {
         discount DECIMAL(15,2) DEFAULT 0,
         amount DECIMAL(15,2) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (invoice_id) REFERENCES sales_invoices(id) ON DELETE CASCADE
+        UNIQUE (invoice_id, branch_id,seq),
+        FOREIGN KEY (invoice_id, branch_id) REFERENCES sales_invoices(invoice_id, branch_id) 
+        ON DELETE CASCADE
       )
     `);
 
