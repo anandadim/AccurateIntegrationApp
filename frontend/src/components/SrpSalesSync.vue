@@ -1,6 +1,6 @@
 <template>
   <div class="sync-manager">
-    <h2>🧾 SNJ Sales Detail Sync</h2>
+    <h2>🧾 SRP Sales Detail Sync</h2>
 
     <div class="card">
       <div class="card-header">
@@ -73,6 +73,9 @@
 
     <div class="card">
       <h3>3. Jalankan Sync</h3>
+      
+      <p class="hint">Proses sync akan memproses data berdasarkan parameter di atas untuk setiap cabang aktif.</p>
+      
       <button class="btn btn-primary" @click="syncSalesDetail" :disabled="syncing || !branches.length">
         {{ syncing ? '⏳ Syncing...' : '🚀 Sync Sales Detail' }}
       </button>

@@ -8,6 +8,8 @@ const salesReceiptController = require('../controllers/salesReceiptController');
 const purchaseOrderController = require('../controllers/purchaseOrderController');
 const salesReturnController = require('../controllers/salesReturnController');
 const srpController = require('../controllers/srpController');
+const accurateSchedulerController = require('../controllers/accurateSchedulerController');
+const itemMasterController = require('../controllers/itemMasterController');
 
 
 async function routes(fastify, options) {
@@ -177,7 +179,7 @@ async function routes(fastify, options) {
   // Get summary statistics
   fastify.get('/purchase-invoices/summary/stats', purchaseInvoiceController.getSummary);
 
-  // === SNJ Merch Item Enquiry Endpoints ===
+  // SNJ Merch Item Enquiry Endpoints
 
   fastify.get('/srp/branches', srpController.getBranches);
   fastify.post('/srp/branches/reload', srpController.reloadBranches);
@@ -198,9 +200,21 @@ async function routes(fastify, options) {
   // Sync inventory to database
   fastify.post('/srp/item-enquiry/sync', srpController.syncInventory);
 
+  // Item master sync & query endpoints
+  fastify.post('/srp/item-master/sync', srpController.syncItemMaster);
+  fastify.get('/srp/item-master', srpController.getItemMasterRecords);
+
   // Sales detail endpoints
   fastify.get('/srp/sales-detail', srpController.fetchSalesDetail);
   fastify.post('/srp/sales-detail/sync', srpController.syncSalesDetail);
+
+  // === Accurate Scheduler Endpoints ===
+
+  fastify.get('/accurate/scheduler/logs', accurateSchedulerController.getLogs);
+
+  // === SRP Item Master Endpoints ===
+
+  fastify.get('/item-master/list', itemMasterController.getList);
 
 
 }

@@ -11,7 +11,7 @@
     <div class="srp-activity" v-else>
       <div class="srp-activity__top">
         <div>
-          <strong>SNJ Activity</strong>
+          <strong>Scheduler Activity</strong>
           <div class="srp-activity__status-row">
             <small v-if="logs.length">Last {{ logs.length }} events</small>
             <small v-else>No activity yet</small>
@@ -93,12 +93,98 @@ import apiService from '../services/apiService'
 
 const POLL_INTERVAL = 10000
 
+const normalizeLog = (log = {}, source = 'srp') => {
+  const metadata = typeof log.metadata === 'object' && log.metadata !== null ? log.metadata : {}
+
+  const startedAt =
+    log.startedAt ||
+    log.started_at ||
+    log.createdAt ||
+    log.created_at ||
+    metadata.startedAt ||
+    metadata.started_at ||
+    null
+
+  const branchId =
+    log.branchId ??
+    log.branch_id ??
+    metadata.branchId ??
+    metadata.branch_id ??
+    null
+
+  const branchName =
+    log.branchName ??
+    log.branch_name ??
+    metadata.branchName ??
+    metadata.branch_name ??
+    null
+
+  const storeCode =
+    log.storeCode ??
+    log.store_code ??
+    metadata.storeCode ??
+    metadata.store_code ??
+    null
+
+  const targetDate =
+    log.targetDate ??
+    log.target_date ??
+    metadata.targetDate ??
+    metadata.target_date ??
+    null
+
+  const rowsFetched =
+    log.rowsFetched ??
+    log.rows_fetched ??
+    metadata.rowsFetched ??
+    metadata.rows_fetched ??
+    metadata.totalFetched ??
+    metadata.total_fetched ??
+    null
+
+  const errorMessage =
+    log.errorMessage ||
+    log.error_message ||
+    metadata.errorMessage ||
+    metadata.error_message ||
+    null
+
+  const dataType =
+    log.dataType ||
+    log.data_type ||
+    metadata.dataType ||
+    metadata.data_type ||
+    null
+
+  return {
+    ...log,
+    source,
+    startedAt,
+    branchId,
+    branchName,
+    storeCode,
+    targetDate,
+    rowsFetched,
+    errorMessage,
+    dataType: dataType || 'activity',
+  }
+}
+
+const sortLogs = (entries) =>
+  entries
+    .filter(Boolean)
+    .sort((a, b) => {
+      const aTime = a.startedAt ? new Date(a.startedAt).getTime() : 0
+      const bTime = b.startedAt ? new Date(b.startedAt).getTime() : 0
+      return bTime - aTime
+    })
+
 export default {
   name: 'SrpActivityTicker',
   setup() {
     const logs = ref([])
-    const error = ref('')
     const fullLogs = ref([])
+    const error = ref('')
     const isMinimized = ref(false)
     const showFull = ref(false)
     const schedulerStatus = ref(null)
@@ -106,14 +192,36 @@ export default {
     const isSchedulerToggling = ref(false)
     let poller = null
 
+    const schedulerPaused = computed(() => Boolean(schedulerStatus.value?.paused))
+    const schedulerBadge = computed(() => {
+      if (schedulerPaused.value) return 'paused'
+      if (schedulerStatus.value?.running) return 'running'
+      if (schedulerStatus.value) return 'ready'
+      return 'idle'
+    })
+
     const fetchLogs = async () => {
       try {
-        const response = await apiService.getSrpLogs({ limit: 8 })
-        if (response.success) {
-          logs.value = response.data || []
-        } else {
-          error.value = response.message || 'Failed to load logs'
+        const [srpResponse, accurateResponse] = await Promise.all([
+          apiService.getSrpLogs({ limit: 20 }),
+          apiService.getAccurateLogs({ limit: 20 })
+        ])
+
+        const combined = []
+
+        if (srpResponse.success && Array.isArray(srpResponse.data)) {
+          combined.push(...srpResponse.data.map((log) => normalizeLog(log, 'srp')))
+        } else if (!srpResponse.success) {
+          error.value = srpResponse.message || 'Failed to load SRP logs'
         }
+
+        if (accurateResponse.success && Array.isArray(accurateResponse.data)) {
+          combined.push(...accurateResponse.data.map((log) => normalizeLog(log, 'accurate')))
+        } else if (!accurateResponse.success) {
+          console.warn('Failed to load Accurate logs:', accurateResponse.message)
+        }
+
+        logs.value = sortLogs(combined).slice(0, 8)
       } catch (err) {
         error.value = err.message
       }
@@ -135,10 +243,20 @@ export default {
 
     const fetchFullLogs = async () => {
       try {
-        const response = await apiService.getSrpLogs({ limit: 50 })
-        if (response.success) {
-          fullLogs.value = response.data || []
+        const [srpResponse, accurateResponse] = await Promise.all([
+          apiService.getSrpLogs({ limit: 100 }),
+          apiService.getAccurateLogs({ limit: 100 })
+        ])
+
+        const combined = []
+        if (srpResponse.success && Array.isArray(srpResponse.data)) {
+          combined.push(...srpResponse.data.map((log) => normalizeLog(log, 'srp')))
         }
+        if (accurateResponse.success && Array.isArray(accurateResponse.data)) {
+          combined.push(...accurateResponse.data.map((log) => normalizeLog(log, 'accurate')))
+        }
+
+        fullLogs.value = sortLogs(combined)
       } catch (err) {
         console.error('Failed to load full logs', err)
       }
@@ -157,17 +275,6 @@ export default {
       showFull.value = false
     }
 
-    const triggerRunNow = async () => {
-      try {
-        const response = await apiService.runSrpSchedulerNow()
-        if (response.success) {
-          await fetchLogs()
-        }
-      } catch (err) {
-        schedulerError.value = err.message || 'Failed to run scheduler now'
-      }
-    }
-
     const toggleSchedulerState = async () => {
       if (isSchedulerToggling.value) return
       isSchedulerToggling.value = true
@@ -180,9 +287,6 @@ export default {
         if (response.success) {
           schedulerStatus.value = response.data
           schedulerError.value = ''
-          if (paused) {
-            await triggerRunNow()
-          }
         } else {
           schedulerError.value = response.message || 'Failed to update scheduler'
         }
@@ -191,6 +295,57 @@ export default {
       } finally {
         isSchedulerToggling.value = false
       }
+    }
+
+    const formatType = (type) => {
+      if (type === 'salesDetail') return 'Sales Detail'
+      if (type === 'inventory') return 'Inventory'
+      if (type === 'sales-invoice') return 'Sales Invoice'
+      if (type === 'sales-receipt') return 'Sales Receipt'
+      if (type === 'sales-order') return 'Sales Order'
+      return type || 'Activity'
+    }
+
+    const resolveIcon = (type) => {
+      if (type === 'inventory') return 'SRP'
+      if (type === 'salesDetail') return 'SRP'
+      if (type === 'sales-invoice') return 'ACC'
+      if (type === 'sales-receipt') return 'ACC'
+      if (type === 'sales-order') return 'ACC'
+      return '🛰️'
+    }
+
+    const formatTime = (value) => {
+      if (!value) return ''
+      const date = new Date(value)
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }
+
+    const buildPayload = (log) => {
+      const metadata = typeof log.metadata === 'object' && log.metadata !== null ? log.metadata : {}
+      const rawTarget = log.targetDate || metadata.targetDate || null
+      const target = rawTarget
+        ? typeof rawTarget === 'string'
+          ? rawTarget
+          : new Date(rawTarget).toLocaleDateString('en-CA') // YYYY-MM-DD
+        : '—'
+
+      const payload = {
+        branch: log.branchName || log.branchId || metadata.branchName || metadata.branchId || '—',
+        store: log.storeCode || metadata.storeCode || '—',
+        target,
+        rows: log.rowsFetched ?? metadata.rowsFetched ?? metadata.totalFetched ?? '—',
+      }
+
+      if (metadata && Object.keys(metadata).length) {
+        payload.metadata = metadata
+      }
+
+      if (log.errorMessage) {
+        payload.error = log.errorMessage.split('\n')[0]
+      }
+
+      return JSON.stringify(payload, null, 2)
     }
 
     onMounted(() => {
@@ -208,55 +363,10 @@ export default {
       }
     })
 
-    const formatType = (type) => {
-      if (type === 'salesDetail') return 'Sales Detail'
-      if (type === 'inventory') return 'Inventory'
-      return type || 'Activity'
-    }
-
-    const resolveIcon = (type) => {
-      if (type === 'inventory') return '🌐'
-      if (type === 'salesDetail') return '🧾'
-      return '🛰️'
-    }
-
-    const formatTime = (value) => {
-      if (!value) return ''
-      const date = new Date(value)
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    }
-
-    const buildPayload = (log) => {
-      const payload = {
-        branch: log.branchId || '—',
-        store: log.storeCode || '—',
-        target: log.targetDate,
-        rows: log.rowsFetched ?? '—',
-      }
-
-      if (log.metadata && typeof log.metadata === 'object') {
-        Object.assign(payload, log.metadata)
-      }
-
-      if (log.errorMessage) {
-        payload.error = log.errorMessage.split('\n')[0]
-      }
-
-      return JSON.stringify(payload, null, 2)
-    }
-
-    const schedulerPaused = computed(() => Boolean(schedulerStatus.value?.paused))
-    const schedulerBadge = computed(() => {
-      if (!schedulerStatus.value) return 'unknown'
-      if (schedulerPaused.value) return 'paused'
-      if (schedulerStatus.value.running) return 'running'
-      return 'idle'
-    })
-
     return {
       logs,
-      error,
       fullLogs,
+      error,
       isMinimized,
       showFull,
       schedulerStatus,
@@ -264,7 +374,6 @@ export default {
       schedulerPaused,
       schedulerBadge,
       isSchedulerToggling,
-      triggerRunNow,
       formatType,
       resolveIcon,
       formatTime,
@@ -333,11 +442,11 @@ export default {
   background: #fbbf24;
 }
 
-.badge-idle {
+.badge-ready {
   background: #8ea5ff;
 }
 
-.badge-unknown {
+.badge-idle {
   background: #94a3b8;
 }
 
@@ -514,5 +623,28 @@ export default {
   gap: 10px;
   font-size: 12px;
   align-items: center;
+}
+
+.status-timeout {
+  background: rgba(255, 171, 92, 0.3);
+  color: #ffab5c;
+}
+
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 </style>

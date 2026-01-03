@@ -1,7 +1,7 @@
 import axios from 'axios'
-// const API_BASE = import.meta.env.VITE_API_BASE ?? imort.meta.env.VITE_API_URL ?? '/api';
+ const API_BASE = import.meta.env.VITE_API_BASE ?? import.meta.env.VITE_API_URL ?? '/api';
 
- const API_BASE = '/api'
+// const API_BASE = '/api'
 
 const apiService = {
   // Helper method for GET requests
@@ -57,6 +57,22 @@ const apiService = {
 
   async runSrpSchedulerNow() {
     const response = await axios.post(`${API_BASE}/srp/scheduler/run-now`)
+    return response.data
+  },
+
+  // === Accurate Scheduler ===
+  async getAccurateLogs(options = {}) {
+    const { limit = 20, status, branchId, dataType } = options
+    const params = {}
+
+    if (limit) params.limit = limit
+    if (status) {
+      params.status = Array.isArray(status) ? status.join(',') : status
+    }
+    if (branchId) params.branchId = branchId
+    if (dataType) params.dataType = dataType
+
+    const response = await axios.get(`${API_BASE}/accurate/scheduler/logs`, { params })
     return response.data
   },
 
@@ -885,6 +901,45 @@ async getGoodsSummary(filters = {}) {
     if(dateTo) params.dateTo = dateTo
     const res = await axios.get(`${API_BASE}/purchase-orders/summary/stats`, { params })
     return res.data
+  },
+
+  // === SRP Item Master ===
+  async syncSrpItemMaster(options = {}) {
+    const {
+      perPage,
+      maxPages,
+      pageDelay,
+      truncateBeforeInsert,
+    } = options
+
+    const payload = {}
+    if (perPage) payload.perPage = perPage
+    if (maxPages) payload.maxPages = maxPages
+    if (pageDelay !== undefined) payload.pageDelay = pageDelay
+    if (truncateBeforeInsert !== undefined) payload.truncateBeforeInsert = truncateBeforeInsert
+
+    const response = await axios.post(`${API_BASE}/srp/item-master/sync`, payload)
+    return response.data
+  },
+
+  async getItemMasterRecords(options = {}) {
+    const {
+      search,
+      entityCode,
+      articleCode,
+      perPage,
+      page,
+    } = options
+
+    const params = {}
+    if (search) params.search = search
+    if (entityCode) params.entityCode = entityCode
+    if (articleCode) params.articleCode = articleCode
+    if (perPage) params.perPage = perPage
+    if (page) params.page = page
+
+    const response = await axios.get(`${API_BASE}/srp/item-master`, { params })
+    return response.data
   }
 }
 

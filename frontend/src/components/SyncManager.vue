@@ -712,15 +712,14 @@ export default {
   background: white;
   border-radius: 8px;
   padding: 24px;
-  margin-bottom: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  margin-bottom: 24px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .card h3 {
   margin-top: 0;
   color: #2c3e50;
   font-size: 18px;
-  margin-bottom: 16px;
 }
 
 .form-group {
@@ -738,20 +737,22 @@ export default {
   display: flex;
   gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .branch-selector .select-input {
   flex: 1;
+  min-width: 200px;
 }
 
 .branch-selector .btn {
   flex-shrink: 0;
-  padding: 10px 16px;
+  padding: 8px 16px;
 }
 
 .select-input, .date-input, .number-input {
   width: 100%;
-  padding: 10px;
+  padding: 8px 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
@@ -770,13 +771,12 @@ export default {
 }
 
 .btn {
-  padding: 10px 20px;
+  padding: 8px 16px;
   border: none;
   border-radius: 4px;
-  font-size: 14px;
-  font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s;
+   font-size: 14px;
+  transition: all 0.2s;
 }
 
 .btn:disabled {
@@ -906,16 +906,16 @@ export default {
 }
 
 .progress-bar {
-  height: 24px;
-  background: #e9ecef;
-  border-radius: 12px;
+  height: 8px;
+  background: #dee2e6;
+  border-radius: 4px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #42b983, #35a372);
-  transition: width 0.3s;
+  background: #007bff;
+  transition: width 0.3s ease;
 }
 
 .progress-text {
@@ -985,7 +985,7 @@ export default {
 
 .sync-status-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 12px;
   margin-bottom: 16px;
 }
@@ -993,35 +993,36 @@ export default {
 .status-card {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px;
-  border-radius: 8px;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 4px;
   background: white;
-  border: 2px solid #e0e0e0;
+  border: 1px solid #e9ecef;
 }
 
 .status-card.new {
-  border-color: #4caf50;
+  border-color: #28a745;
   background: #f1f8f4;
 }
 
 .status-card.updated {
-  border-color: #ff9800;
+  border-color: #ffc107;
   background: #fff8f0;
 }
 
 .status-card.unchanged {
-  border-color: #2196f3;
+  border-color: #6c757d;
   background: #f0f7ff;
 }
 
 .status-card.total {
-  border-color: #9c27b0;
+  border-color: #007bff;
   background: #f8f0ff;
 }
 
 .status-icon {
   font-size: 24px;
+  margin-right: 8px;
 }
 
 .status-content {
@@ -1036,9 +1037,9 @@ export default {
 }
 
 .status-value {
-  font-size: 24px;
-  font-weight: 700;
-  color: #2c3e50;
+  font-size: 18px;
+  font-weight: bold;
+  color: #333;
 }
 
 .sync-recommendation {
