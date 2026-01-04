@@ -1,6 +1,6 @@
 <template>
   <div class="sync-manager">
-    <h2>📦 SNJ Inventory Sync</h2>
+    <h2>📦 SRP Inventory Sync</h2>
 
     <div class="card">
       <div class="card-header">
@@ -64,21 +64,23 @@
           <label>Location Code Override (opsional)</label>
           <input v-model="locationOverride" class="text-input" placeholder="Biarkan kosong gunakan default per cabang" />
         </div>
-        <div class="form-group checkbox">
-          <label>
-            <input type="checkbox" v-model="truncateBeforeInsert" />
-            Truncate sebelum insert (snapshot)
-          </label>
-        </div>
+        
       </div>
       <div class="form-group">
         <label>Article Codes (opsional, pisahkan dengan koma)</label>
         <textarea v-model="articleCodesInput" class="text-area" rows="3" placeholder="ITEM001, ITEM002"></textarea>
       </div>
+      <div class="form-group checkbox">
+          <label>
+            <input type="checkbox" v-model="truncateBeforeInsert" />
+            Truncate sebelum insert (snapshot)
+          </label>
+        </div>
     </div>
 
     <div class="card">
       <h3>3. Jalankan Sync</h3>
+      <p class="hint">Pastikan semua pengaturan sudah benar sebelum menjalankan sync</p>
       <button class="btn btn-primary" @click="syncInventory" :disabled="syncing || !branches.length">
         {{ syncing ? '⏳ Syncing...' : '🚀 Sync Inventory' }}
       </button>

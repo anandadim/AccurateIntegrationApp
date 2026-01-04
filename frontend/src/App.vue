@@ -1,90 +1,12 @@
 <template>
-  <div>
-    <h1>🔗 Accurate Online API Integration</h1>
-    
-    <div class="view-toggle">
-      <button 
-        @click="currentView = 'invoice-sync'" 
-        :class="{ active: currentView === 'invoice-sync' }"
-      >
-        📄 Sales Invoice Sync
-      </button>
-    
-      <button 
-        @click="currentView = 'return-sync'" 
-        :class="{ active: currentView === 'return-sync' }"
-      >
-        ↩️ Sales Return Sync
-      </button>
+  <div class="app-layout">
+    <Sidebar :current-view="currentView" @navigate="currentView = $event" />
 
-      <button 
-        @click="currentView = 'receipt-sync'" 
-        :class="{ active: currentView === 'receipt-sync' }"
-      >
-        📄 Sales Receipt Sync
-      </button>
-
-      <button 
-        @click="currentView = 'order-sync'" 
-        :class="{ active: currentView === 'order-sync' }"
-      >
-        📦 Sales Order Sync
-      </button>
-      <button 
-        @click="currentView = 'purchase-invoice-sync'" 
-        :class="{ active: currentView === 'purchase-invoice-sync' }"
-      >
-        📦 Purchase Invoice Sync
-      </button>
-      <button 
-        @click="currentView = 'purchase-order-sync'" 
-        :class="{ active: currentView === 'purchase-order-sync' }"
-      >
-        📝 Purchase Order Sync
-      </button>
-      <button 
-        @click="currentView = 'srp-inventory-sync'" 
-        :class="{ active: currentView === 'srp-inventory-sync' }"
-      >
-        🏪 SNJ Inventory Sync
-      </button>
-      <button 
-        @click="currentView = 'srp-sales-sync'" 
-        :class="{ active: currentView === 'srp-sales-sync' }"
-      >
-        🧾 SNJ Sales Sync
-      </button>
-      <button 
-        @click="currentView = 'customer-sync'" 
-        :class="{ active: currentView === 'customer-sync' }"
-      >
-        👥 Customer Sync
-      </button>
-      <button 
-        @click="currentView = 'item-sync'" 
-        :class="{ active: currentView === 'item-sync' }"
-      >
-        📦 Items Sync
-      </button>
-      <!-- <button 
-        @click="currentView = 'goods-sync'" 
-        :class="{ active: currentView === 'goods-sync' }"
-      >
-        📦 Goods Sync
-      </button> -->
-      <!-- <button 
-        @click="currentView = 'goods-table'" 
-        :class="{ active: currentView === 'goods-table' }"
-      >
-        📋 Goods List
-      </button> -->
-      <button 
-        @click="currentView = 'api'" 
-        :class="{ active: currentView === 'api' }"
-      >
-        🔌 API Testing
-      </button>
-    </div>
+    <main class="main-content">
+      <div class="content-wrapper">
+        <div class="page-header">
+          <h1>{{ pageTitle }}</h1>
+        </div>
 
     <!-- Sales Invoice Sync View -->
     <SyncManager v-if="currentView === 'invoice-sync'" :branches="branches" />
@@ -110,6 +32,9 @@
     <!-- Items View -->
     <ItemSync v-if="currentView === 'item-sync'" :branches="branches" />
 
+    <!-- Item Master View -->
+    <SrpItemMasterSync v-if="currentView === 'item-master'" />
+
     <!-- Goods Sync View
     <GoodsSync v-if="currentView === 'goods-sync'" />
 
@@ -119,26 +44,26 @@
     <!-- API Testing View -->
     <div v-if="currentView === 'api'">
       <div class="view-toggle" style="margin-top: 16px;">
-        <button 
-          @click="viewMode = 'simple'" 
+        <button
+          @click="viewMode = 'simple'"
           :class="{ active: viewMode === 'simple' }"
         >
           Simple View
         </button>
-        <button 
-          @click="viewMode = 'table'" 
+        <button
+          @click="viewMode = 'table'"
           :class="{ active: viewMode === 'table' }"
         >
           Table View
         </button>
       </div>
-    
+
     <div class="container">
       <h2>1. Pilih Cabang</h2>
       <button @click="loadBranches" :disabled="loading">
         {{ loading ? 'Loading...' : 'Load Branches' }}
       </button>
-      
+
       <div v-if="branches.length > 0" style="margin-top: 12px;">
         <select v-model="selectedBranch" @change="onBranchChange">
           <option value="">-- Pilih Cabang --</option>
@@ -176,7 +101,7 @@
 
       <div style="margin-top: 16px; padding-top: 16px; border-top: 2px solid #eee;">
         <strong>Get List + Details:</strong>
-        
+
         <div style="margin-top: 12px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
           <div>
             <label style="font-size: 12px; color: #666;">From:</label>
@@ -191,7 +116,7 @@
             <input type="number" v-model="maxItems" min="1" max="100" style="width: 60px; padding: 6px; margin-left: 4px;">
           </div>
         </div>
-        
+
         <div style="margin-top: 12px;">
           <button @click="fetchListWithDetails('sales-invoice')" :disabled="loading">
             📄 Sales Invoice (List + Details)
@@ -211,19 +136,21 @@
 
     <div class="container" v-if="responseData">
       <h2>4. Response Data</h2>
-      
+
       <!-- Table View for Sales Invoice -->
-      <SalesInvoiceTable 
+      <SalesInvoiceTable
         v-if="viewMode === 'table' && responseData.items"
         :items="responseData.items"
         :summary="responseData.summary"
         :loading="loading"
       />
-      
+
       <!-- Simple JSON View -->
       <pre v-else>{{ JSON.stringify(responseData, null, 2) }}</pre>
     </div>
     </div>
+      </div>
+    </main>
   </div>
   <SrpActivityTicker />
 </template>
@@ -231,6 +158,7 @@
 <script>
 import { ref, computed, onMounted } from 'vue'
 import apiService from './services/apiService'
+import Sidebar from './components/Sidebar.vue'
 import SalesInvoiceTable from './components/SalesInvoiceTable.vue'
 import PurchaseInvoiceTable from './components/PurchaseInvoiceTable.vue'
 import SyncManager from './components/SyncManager.vue'
@@ -245,12 +173,14 @@ import PurchaseOrderSync from './components/PurchaseOrderSync.vue'
 import SrpInventorySync from './components/SrpInventorySync.vue'
 import SrpSalesSync from './components/SrpSalesSync.vue'
 import SrpActivityTicker from './components/SrpActivityTicker.vue'
+import SrpItemMasterSync from './components/SrpItemMasterSync.vue'
 // import GoodsSync from './components/GoodsSync.vue'
 // import GoodsTable from './components/GoodsTable.vue'
 
 export default {
   name: 'App',
   components: {
+    Sidebar,
     CustomerSync,
     SalesInvoiceTable,
     PurchaseInvoiceTable,
@@ -264,8 +194,7 @@ export default {
     SrpInventorySync,
     SrpSalesSync,
     SrpActivityTicker,
-    SalesReturnSync,
-    SalesReceiptSync,
+    SrpItemMasterSync,
   },
   setup() {
     const currentView = ref('invoice-sync')
@@ -278,6 +207,24 @@ export default {
     const successMessage = ref('')
     const maxItems = ref(20)
     const viewMode = ref('table')
+
+    const pageTitle = computed(() => {
+      const titles = {
+        'invoice-sync': 'Accurate Integration',
+        'return-sync': 'Accurate Integration',
+        'receipt-sync': 'Accurate Integration',
+        'order-sync': 'Accurate Integration',
+        'purchase-invoice-sync': 'Accurate Integration',
+        'purchase-order-sync': 'Accurate Integration',
+        'srp-inventory-sync': 'SRP Integration',
+        'srp-sales-sync': 'SRP Integration',
+        'item-master': 'SRP Integration',
+        'customer-sync': 'Customer Sync',
+        'item-sync': 'Items Sync',
+        'api': 'API Testing'
+      }
+      return titles[currentView.value] || 'Dashboard'
+    })
     
     // Set default date to today
     const today = new Date().toISOString().split('T')[0]
@@ -395,6 +342,7 @@ export default {
       viewMode,
       dateFrom,
       dateTo,
+      pageTitle,
       loadBranches,
       onBranchChange,
       fetchData,

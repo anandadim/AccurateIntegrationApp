@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { saveInventoryRecords } = require('../models/snjInventoryRepository');
 const { saveSalesDetailRecords } = require('../models/snjSalesDetailRepository');
+const { saveItemMasterRecords, getItemMasterRecords } = require('../models/snjItemMasterRepository');
 
 const DEFAULT_SRP_BASE_URL = process.env.SNJ_MERCH_BASE_URL || 'https://api-merch-prod.snjsystem.com/api/merch-api';
 const DEFAULT_PAGE_SIZE = 100;
@@ -227,8 +228,8 @@ const fetchSalesDetailData = async ({ branchId, storeCode, dateFrom, dateTo }) =
   }
 };
 
-const createApiClient = (branchId = null) => {
-  const branchConfig = getBranchConfig(branchId);
+const createApiClient = () => {
+  const branchConfig = getBranchConfig();
   const { baseUrl, credentials } = branchConfig;
 
   if (!credentials?.appKey || !credentials?.appToken) {
@@ -378,6 +379,111 @@ const fetchItemEnquiryAllPages = async ({ endpoint, branchId, locationCode, arti
   };
 };
 
+const fetchItemMasterList = async ({
+  per_page,
+  page,
+} = {}) => {
+  const { client } = createApiClient();
+
+  const params = {};
+
+  if (per_page != null) {
+    params.per_page = per_page;
+  }
+
+  if (page != null) {
+    params.page = page;
+  }
+
+  try {
+    console.log('🌐 SNJ Item Master Request', {
+      params,
+      baseUrl: client.defaults.baseURL,
+    });
+
+    const response = await client.get('/item-master/list', { params });
+
+    console.log('✅ SNJ Item Master Response', {
+      status: response.status,
+      keys: Object.keys(response.data || {}),
+      total: response.data?.mdz_article_masters?.total ?? null,
+    });
+
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      console.error('❌ SNJ Item Master API error', {
+        status: error.response.status,
+        data: error.response.data,
+      });
+
+      const message = error.response.data?.error_message || error.response.data?.message || error.message;
+      const wrappedError = new Error(`Item Master API error: ${message}`);
+      wrappedError.status = error.response.status;
+      wrappedError.response = error.response.data;
+      throw wrappedError;
+    }
+
+    if (error.request) {
+      throw new Error('Item Master API: No response received from server');
+    }
+
+    throw new Error(`Item Master API: ${error.message}`);
+  }
+};
+
+const fetchItemMasterAllPages = async ({
+  perPage = DEFAULT_PAGE_SIZE,
+  maxPages = null,
+  pageDelay = 150,
+} = {}) => {
+  const collected = [];
+  let currentPage = 1;
+  let lastPage = 1;
+  let total = 0;
+
+  do {
+    const response = await fetchItemMasterList({
+      per_page: perPage,
+      page: currentPage,
+    });
+
+    if (!response || response.error) {
+      const message = response?.error_message || 'SNJ Item Master API returned an error flag';
+      const error = new Error(message);
+      error.details = response;
+      throw error;
+    }
+
+    const master = response.mdz_article_masters || {};
+    const data = Array.isArray(master.data) ? master.data : [];
+    collected.push(...data);
+
+    total = master.total != null ? Number(master.total) : total;
+    lastPage = master.last_page != null ? Number(master.last_page) : lastPage;
+
+    if (maxPages && currentPage >= maxPages) {
+      break;
+    }
+
+    currentPage += 1;
+
+    if (pageDelay > 0 && currentPage <= lastPage && (!maxPages || currentPage <= maxPages)) {
+      await new Promise((resolve) => setTimeout(resolve, pageDelay));
+    }
+  } while (currentPage <= lastPage);
+
+  return {
+    data: collected,
+    pagination: {
+      total,
+      perPage,
+      lastPage,
+      collectedPages: Math.min(lastPage, maxPages || lastPage),
+    },
+  };
+};
+
 const srpService = {
   getBranches(forceReload = false) {
     const branches = getActiveBranchConfigs(forceReload);
@@ -440,6 +546,44 @@ const srpService = {
       maxPages,
       pageDelay,
     });
+  },
+
+  async fetchItemMasterList(options = {}) {
+    return fetchItemMasterList(options);
+  },
+
+  async fetchItemMasterAllPages(options = {}) {
+    return fetchItemMasterAllPages(options);
+  },
+
+  async syncItemMaster({
+    perPage = DEFAULT_PAGE_SIZE,
+    maxPages = null,
+    pageDelay = 150,
+    truncateBeforeInsert = false,
+  } = {}) {
+    const fetchResult = await fetchItemMasterAllPages({
+      perPage,
+      maxPages,
+      pageDelay,
+    });
+
+    const saveResult = await saveItemMasterRecords(fetchResult.data, {
+      truncateBeforeInsert,
+    });
+
+    return {
+      totals: {
+        totalFetched: fetchResult.data.length,
+        totalInserted: saveResult.insertedCount,
+        totalUpdated: saveResult.updatedCount,
+      },
+      pagination: fetchResult.pagination,
+    };
+  },
+
+  async getItemMasterRecords(options = {}) {
+    return getItemMasterRecords(options);
   },
 
   async syncInventory({

@@ -272,6 +272,65 @@ const srpController = {
     }
   },
 
+  async syncItemMaster(req, reply) {
+    try {
+      const payload = Object.assign({}, req.query || {}, req.body || {});
+
+      const {
+        perPage,
+        maxPages,
+        pageDelay,
+        truncateBeforeInsert,
+      } = payload;
+
+      const normalizeBoolean = (value, defaultValue = false) => {
+        if (value === undefined || value === null) return defaultValue;
+        if (typeof value === 'boolean') return value;
+        if (typeof value === 'string') {
+          const lowered = value.toLowerCase();
+          if (['true', '1', 'yes', 'y'].includes(lowered)) return true;
+          if (['false', '0', 'no', 'n'].includes(lowered)) return false;
+        }
+        return Boolean(value);
+      };
+
+      const result = await srpService.syncItemMaster({
+        perPage: perPage ? Number(perPage) : undefined,
+        maxPages: maxPages ? Number(maxPages) : null,
+        pageDelay: pageDelay ? Number(pageDelay) : undefined,
+        truncateBeforeInsert: normalizeBoolean(truncateBeforeInsert, false),
+      });
+
+      handleSuccess(reply, result);
+    } catch (error) {
+      handleError(reply, error, 'Failed to sync SNJ item master');
+    }
+  },
+
+  async getItemMasterRecords(req, reply) {
+    try {
+      const {
+        search = null,
+        entityCode = null,
+        articleCode = null,
+        perPage,
+        page,
+      } = req.query || {};
+
+      const result = await srpService.getItemMasterRecords({
+        search: search || null,
+        entityCode: entityCode || null,
+        articleCode: articleCode || null,
+        perPage: perPage ? Number(perPage) : undefined,
+        page: page ? Number(page) : undefined,
+      });
+
+      handleSuccess(reply, result);
+    } catch (error) {
+      handleError(reply, error, 'Failed to get SNJ item master records');
+    }
+  },
+
   async fetchSalesDetail(req, reply) {
     try {
       const {
