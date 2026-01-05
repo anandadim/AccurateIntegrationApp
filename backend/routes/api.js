@@ -211,6 +211,10 @@ async function routes(fastify, options) {
   // === Accurate Scheduler Endpoints ===
 
   fastify.get('/accurate/scheduler/logs', accurateSchedulerController.getLogs);
+  fastify.get('/accurate/scheduler/status', accurateSchedulerController.getStatus);
+  fastify.post('/accurate/scheduler/pause', accurateSchedulerController.pause);
+  fastify.post('/accurate/scheduler/resume', accurateSchedulerController.resume);
+  fastify.post('/accurate/scheduler/run-now', accurateSchedulerController.runNow);
 
   // === SRP Item Master Endpoints ===
 

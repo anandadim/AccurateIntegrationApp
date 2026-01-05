@@ -1,4 +1,10 @@
 const { getRecentLogs } = require('../models/accurateFetchLogRepository');
+const {
+  getSchedulerStatus,
+  pauseAccurateScheduler,
+  resumeAccurateScheduler,
+  runAccurateSync,
+} = require('../services/scheduler');
 
 const handleSuccess = (reply, data) => {
   reply.send({
@@ -44,6 +50,42 @@ const accurateSchedulerController = {
       handleSuccess(reply, logs);
     } catch (error) {
       handleError(reply, error, 'Failed to get Accurate scheduler logs');
+    }
+  },
+
+  async getStatus(req, reply) {
+    try {
+      const status = getSchedulerStatus();
+      handleSuccess(reply, status.accurate);
+    } catch (error) {
+      handleError(reply, error, 'Failed to get Accurate scheduler status');
+    }
+  },
+
+  async pause(req, reply) {
+    try {
+      const status = pauseAccurateScheduler();
+      handleSuccess(reply, status.accurate);
+    } catch (error) {
+      handleError(reply, error, 'Failed to pause Accurate scheduler');
+    }
+  },
+
+  async resume(req, reply) {
+    try {
+      const status = resumeAccurateScheduler();
+      handleSuccess(reply, status.accurate);
+    } catch (error) {
+      handleError(reply, error, 'Failed to resume Accurate scheduler');
+    }
+  },
+
+  async runNow(req, reply) {
+    try {
+      await runAccurateSync();
+      handleSuccess(reply, { message: 'Accurate scheduler run triggered manually' });
+    } catch (error) {
+      handleError(reply, error, 'Failed to run Accurate scheduler now');
     }
   },
 };
