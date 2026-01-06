@@ -1,8 +1,8 @@
 const srpService = require('../services/srpService');
 const {
   getSchedulerStatus,
-  pauseScheduler,
-  resumeScheduler,
+  pauseSRPScheduler,
+  resumeSRPScheduler,
   runScheduledSync,
 } = require('../services/scheduler');
 const { getRecentLogs } = require('../models/srpFetchLogRepository');
@@ -37,7 +37,7 @@ const srpController = {
   async getSchedulerStatus(req, reply) {
     try {
       const status = getSchedulerStatus();
-      handleSuccess(reply, status);
+      handleSuccess(reply, status.srp);
     } catch (error) {
       handleError(reply, error, 'Failed to get scheduler status');
     }
@@ -45,8 +45,8 @@ const srpController = {
 
   async pauseScheduler(req, reply) {
     try {
-      const status = pauseScheduler();
-      handleSuccess(reply, status);
+      const status = pauseSRPScheduler();
+      handleSuccess(reply, status.srp);
     } catch (error) {
       handleError(reply, error, 'Failed to pause scheduler');
     }
@@ -54,8 +54,8 @@ const srpController = {
 
   async resumeScheduler(req, reply) {
     try {
-      const status = resumeScheduler();
-      handleSuccess(reply, status);
+      const status = resumeSRPScheduler();
+      handleSuccess(reply, status.srp);
     } catch (error) {
       handleError(reply, error, 'Failed to resume scheduler');
     }

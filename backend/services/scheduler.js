@@ -23,6 +23,7 @@ const STALE_MINUTES = Number(process.env.SRP_SCHEDULER_STALE_MINUTES || 90);
 const DEFAULT_PAUSED = process.env.SRP_SCHEDULER_DEFAULT_PAUSED === 'true';
 
 // Accurate Scheduler Settings
+const ACCURATE_SCHEDULER_CRON = process.env.ACCURATE_SCHEDULER_CRON || '0 22 * * *';
 const ENABLE_ACCURATE = process.env.ACCURATE_SCHEDULER_ENABLE !== 'false';
 const ENABLE_SALES_INVOICE = process.env.ACCURATE_SCHEDULER_ENABLE_SALES_INVOICE !== 'false';
 const ENABLE_SALES_RECEIPT = process.env.ACCURATE_SCHEDULER_ENABLE_SALES_RECEIPT !== 'false';
@@ -30,9 +31,12 @@ const ENABLE_SALES_ORDER = process.env.ACCURATE_SCHEDULER_ENABLE_SALES_ORDER !==
 const ACCURATE_BATCH_SIZE = Number(process.env.ACCURATE_SCHEDULER_BATCH_SIZE || 50);
 const ACCURATE_BATCH_DELAY = Number(process.env.ACCURATE_SCHEDULER_BATCH_DELAY || 300);
 
-let isRunning = false;
-let isPaused = DEFAULT_PAUSED;
-let cronTask = null;
+let isRunningSRP = false;
+let isRunningAccurate = false;
+let isPausedSRP = DEFAULT_PAUSED;
+let isPausedAccurate = process.env.ACCURATE_SCHEDULER_DEFAULT_PAUSED === 'true';
+let srpCronTask = null;
+let accurateCronTask = null;
 
 const formatDate = (date) => {
   const year = date.getFullYear();
@@ -282,33 +286,27 @@ const runSalesOrderJob = async ({ branch, targetDate }) => {
   }
 };
 
-const runScheduledSync = async () => {
-  if (isPaused) {
-    console.warn('⚠️ Scheduler run skipped because scheduler is paused');
+const runSRPSync = async () => {
+  if (isPausedSRP) {
+    console.warn('⚠️ SRP Scheduler run skipped because scheduler is paused');
     return;
   }
 
-  if (isRunning) {
-    console.warn('⚠️ Scheduler run skipped because previous job is still running');
+  if (isRunningSRP) {
+    console.warn('⚠️ SRP Scheduler run skipped because previous job is still running');
     return;
   }
 
   const targetDate = formatDate(new Date());
 
   try {
-    isRunning = true;
-    console.log(`🚀 Scheduler run started for ${targetDate}`);
+    isRunningSRP = true;
+    console.log(`🚀 SRP Scheduler run started for ${targetDate}`);
     
     // Mark stale SRP logs
     const srpMarked = await markStaleRunningLogs({ olderThanMinutes: STALE_MINUTES });
     if (srpMarked > 0) {
       console.warn(`⚠️ Marked ${srpMarked} stale SRP logs as timeout`);
-    }
-
-    // Mark stale Accurate logs
-    const accurateMarked = await markAccurateStaleRunningLogs({ olderThanMinutes: STALE_MINUTES });
-    if (accurateMarked > 0) {
-      console.warn(`⚠️ Marked ${accurateMarked} stale Accurate logs as timeout`);
     }
 
     // SRP Branches
@@ -323,84 +321,196 @@ const runScheduledSync = async () => {
       console.warn('⚠️ No SRP branches configured, skipping SRP scheduler run');
     }
 
-    // Accurate Branches
-    if (ENABLE_ACCURATE) {
-      const accurateBranches = accurateService.getBranches();
-      if (accurateBranches.length) {
-        console.log(`📋 Processing ${accurateBranches.length} Accurate branches`);
-        for (const branch of accurateBranches) {
-          await runSalesInvoiceJob({ branch, targetDate });
-          await runSalesReceiptJob({ branch, targetDate });
-          await runSalesOrderJob({ branch, targetDate });
-        }
-      } else {
-        console.warn('⚠️ No Accurate branches configured, skipping Accurate scheduler run');
-      }
-    } else {
-      console.log('⚠️ Accurate scheduler is disabled');
+    console.log(`✅ SRP Scheduler run completed for ${targetDate}`);
+  } catch (error) {
+    console.error('❌ SRP Scheduler run failed:', error);
+  } finally {
+    isRunningSRP = false;
+  }
+};
+
+const runAccurateSync = async () => {
+  if (!ENABLE_ACCURATE) {
+    console.log('⚠️ Accurate scheduler is disabled');
+    return;
+  }
+
+  if (isPausedAccurate) {
+    console.warn('⚠️ Accurate Scheduler run skipped because scheduler is paused');
+    return;
+  }
+
+  if (isRunningAccurate) {
+    console.warn('⚠️ Accurate Scheduler run skipped because previous job is still running');
+    return;
+  }
+
+  const targetDate = formatDate(new Date());
+
+  try {
+    isRunningAccurate = true;
+    console.log(`🚀 Accurate Scheduler run started for ${targetDate}`);
+    
+    // Mark stale Accurate logs
+    const accurateMarked = await markAccurateStaleRunningLogs({ olderThanMinutes: STALE_MINUTES });
+    if (accurateMarked > 0) {
+      console.warn(`⚠️ Marked ${accurateMarked} stale Accurate logs as timeout`);
     }
 
-    console.log(`✅ Scheduler run completed for ${targetDate}`);
+    // Accurate Branches
+    const accurateBranches = accurateService.getBranches();
+    if (accurateBranches.length) {
+      console.log(`📋 Processing ${accurateBranches.length} Accurate branches`);
+      for (const branch of accurateBranches) {
+        await runSalesInvoiceJob({ branch, targetDate });
+        await runSalesReceiptJob({ branch, targetDate });
+        await runSalesOrderJob({ branch, targetDate });
+      }
+    } else {
+      console.warn('⚠️ No Accurate branches configured, skipping Accurate scheduler run');
+    }
+
+    console.log(`✅ Accurate Scheduler run completed for ${targetDate}`);
   } catch (error) {
-    console.error('❌ Scheduler run failed:', error);
+    console.error('❌ Accurate Scheduler run failed:', error);
   } finally {
-    isRunning = false;
+    isRunningAccurate = false;
   }
+};
+
+const runScheduledSync = async () => {
+  await runSRPSync();
+  await runAccurateSync();
 };
 
 // Initialize scheduler
 function initScheduler() {
-  if (cronTask) {
-    cronTask.stop();
+  if (srpCronTask) {
+    srpCronTask.stop();
+  }
+  if (accurateCronTask) {
+    accurateCronTask.stop();
   }
 
-  cronTask = cron.schedule(SCHEDULER_CRON, async () => {
-    console.log('⏰ Scheduler tick at', new Date().toISOString());
-    await runScheduledSync();
+  // SRP Scheduler
+  srpCronTask = cron.schedule(SCHEDULER_CRON, async () => {
+    console.log('⏰ SRP Scheduler tick at', new Date().toISOString());
+    await runSRPSync();
   });
 
-  // Only start the cron task if not paused
-  if (isPaused && cronTask) {
-    cronTask.stop();
-    console.log('⏸️ Scheduler initialized in paused state');
-  } else if (!isPaused && cronTask) {
-    console.log('▶️ Scheduler initialized and started automatically');
+  // Accurate Scheduler
+  accurateCronTask = cron.schedule(ACCURATE_SCHEDULER_CRON, async () => {
+    console.log('⏰ Accurate Scheduler tick at', new Date().toISOString());
+    await runAccurateSync();
+  });
+
+  // Only start the cron tasks if not paused
+  if (isPausedSRP && srpCronTask) {
+    srpCronTask.stop();
+    console.log('⏸️ SRP Scheduler initialized in paused state');
+  } else if (!isPausedSRP && srpCronTask) {
+    console.log('▶️ SRP Scheduler initialized and started automatically');
   }
 
-  console.log(`📅 Scheduler initialized - running on cron "${SCHEDULER_CRON}"`);
-  console.log(`🔧 SRP Settings: ENABLE_INVENTORY=${ENABLE_INVENTORY}, ENABLE_SALES_DETAIL=${ENABLE_SALES_DETAIL}, DEFAULT_PAUSED=${DEFAULT_PAUSED}`);
+  if (isPausedAccurate && accurateCronTask) {
+    accurateCronTask.stop();
+    console.log('⏸️ Accurate Scheduler initialized in paused state');
+  } else if (!isPausedAccurate && accurateCronTask) {
+    console.log('▶️ Accurate Scheduler initialized and started automatically');
+  }
+
+  console.log(`📅 SRP Scheduler initialized - running on cron "${SCHEDULER_CRON}"`);
+  console.log(`� Accurate Scheduler initialized - running on cron "${ACCURATE_SCHEDULER_CRON}"`);
+  console.log(`�🔧 SRP Settings: ENABLE_INVENTORY=${ENABLE_INVENTORY}, ENABLE_SALES_DETAIL=${ENABLE_SALES_DETAIL}, DEFAULT_PAUSED=${DEFAULT_PAUSED}`);
   console.log(`🔧 Accurate Settings: ENABLE_ACCURATE=${ENABLE_ACCURATE}, ENABLE_SALES_INVOICE=${ENABLE_SALES_INVOICE}, ENABLE_SALES_RECEIPT=${ENABLE_SALES_RECEIPT}, ENABLE_SALES_ORDER=${ENABLE_SALES_ORDER}`);
   console.log(`🔧 Batch Settings: SIZE=${ACCURATE_BATCH_SIZE}, DELAY=${ACCURATE_BATCH_DELAY}ms`);
 }
 
 const pauseScheduler = () => {
-  isPaused = true;
-  if (cronTask) {
-    cronTask.stop();
+  isPausedSRP = true;
+  isPausedAccurate = true;
+  if (srpCronTask) {
+    srpCronTask.stop();
   }
-  console.log('⏸️ Scheduler paused');
+  if (accurateCronTask) {
+    accurateCronTask.stop();
+  }
+  console.log('⏸️ All schedulers paused');
+  return getSchedulerStatus();
+};
+
+const pauseSRPScheduler = () => {
+  isPausedSRP = true;
+  if (srpCronTask) {
+    srpCronTask.stop();
+  }
+  console.log('⏸️ SRP Scheduler paused');
+  return getSchedulerStatus();
+};
+
+const pauseAccurateScheduler = () => {
+  isPausedAccurate = true;
+  if (accurateCronTask) {
+    accurateCronTask.stop();
+  }
+  console.log('⏸️ Accurate Scheduler paused');
   return getSchedulerStatus();
 };
 
 const resumeScheduler = () => {
-  isPaused = false;
-  if (cronTask) {
-    cronTask.start();
+  isPausedSRP = false;
+  isPausedAccurate = false;
+  if (srpCronTask) {
+    srpCronTask.start();
   }
-  console.log('▶️ Scheduler resumed');
+  if (accurateCronTask) {
+    accurateCronTask.start();
+  }
+  console.log('▶️ All schedulers resumed');
+  return getSchedulerStatus();
+};
+
+const resumeSRPScheduler = () => {
+  isPausedSRP = false;
+  if (srpCronTask) {
+    srpCronTask.start();
+  }
+  console.log('▶️ SRP Scheduler resumed');
+  return getSchedulerStatus();
+};
+
+const resumeAccurateScheduler = () => {
+  isPausedAccurate = false;
+  if (accurateCronTask) {
+    accurateCronTask.start();
+  }
+  console.log('▶️ Accurate Scheduler resumed');
   return getSchedulerStatus();
 };
 
 const getSchedulerStatus = () => ({
-  cron: SCHEDULER_CRON,
-  running: isRunning,
-  paused: isPaused,
+  srp: {
+    cron: SCHEDULER_CRON,
+    running: isRunningSRP,
+    paused: isPausedSRP,
+  },
+  accurate: {
+    cron: ACCURATE_SCHEDULER_CRON,
+    running: isRunningAccurate,
+    paused: isPausedAccurate,
+  },
 });
 
 module.exports = {
   initScheduler,
   runScheduledSync,
+  runSRPSync,
+  runAccurateSync,
   pauseScheduler,
+  pauseSRPScheduler,
+  pauseAccurateScheduler,
   resumeScheduler,
+  resumeSRPScheduler,
+  resumeAccurateScheduler,
   getSchedulerStatus,
 };
