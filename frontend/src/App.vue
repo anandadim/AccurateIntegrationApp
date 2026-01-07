@@ -35,6 +35,9 @@
     <!-- Item Master View -->
     <SrpItemMasterSync v-if="currentView === 'item-master'" />
 
+    <!-- Scheduler Config View -->
+    <SchedulerConfig v-if="currentView === 'scheduler-config'" />
+
     <!-- Goods Sync View
     <GoodsSync v-if="currentView === 'goods-sync'" />
 
@@ -174,6 +177,7 @@ import SrpInventorySync from './components/SrpInventorySync.vue'
 import SrpSalesSync from './components/SrpSalesSync.vue'
 import SrpActivityTicker from './components/SrpActivityTicker.vue'
 import SrpItemMasterSync from './components/SrpItemMasterSync.vue'
+import SchedulerConfig from './components/SchedulerConfig.vue'
 // import GoodsSync from './components/GoodsSync.vue'
 // import GoodsTable from './components/GoodsTable.vue'
 
@@ -195,6 +199,7 @@ export default {
     SrpSalesSync,
     SrpActivityTicker,
     SrpItemMasterSync,
+    SchedulerConfig,
   },
   setup() {
     const currentView = ref('invoice-sync')
@@ -221,7 +226,8 @@ export default {
         'item-master': 'SRP Integration',
         'customer-sync': 'Customer Sync',
         'item-sync': 'Items Sync',
-        'api': 'API Testing'
+        'api': 'API Testing',
+        'scheduler-config': 'Scheduler Configuration'
       }
       return titles[currentView.value] || 'Dashboard'
     })
