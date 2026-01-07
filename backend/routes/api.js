@@ -10,6 +10,7 @@ const salesReturnController = require('../controllers/salesReturnController');
 const srpController = require('../controllers/srpController');
 const accurateSchedulerController = require('../controllers/accurateSchedulerController');
 const itemMasterController = require('../controllers/itemMasterController');
+const schedulerConfigController = require('../controllers/schedulerConfigController');
 
 
 async function routes(fastify, options) {
@@ -215,6 +216,11 @@ async function routes(fastify, options) {
   fastify.post('/accurate/scheduler/pause', accurateSchedulerController.pause);
   fastify.post('/accurate/scheduler/resume', accurateSchedulerController.resume);
   fastify.post('/accurate/scheduler/run-now', accurateSchedulerController.runNow);
+
+  // === Scheduler Configuration Endpoints ===
+
+  fastify.get('/scheduler/config', schedulerConfigController.getAll);
+  fastify.put('/scheduler/config/cron', schedulerConfigController.updateCron);
 
   // === SRP Item Master Endpoints ===
 

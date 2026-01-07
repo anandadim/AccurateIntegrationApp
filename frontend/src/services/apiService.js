@@ -16,6 +16,12 @@ const apiService = {
     return response.data;
   },
 
+  // Helper method for PUT requests
+  async put(url, data) {
+    const response = await axios.put(`${API_BASE}${url}`, data);
+    return response.data;
+  },
+
   // === SNJ Merch (SRP) Item Enquiry ===
   async getSrpBranches() {
     const response = await axios.get(`${API_BASE}/srp/branches`)

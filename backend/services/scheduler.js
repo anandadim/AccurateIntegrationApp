@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const srpService = require('./srpService');
 const accurateService = require('./accurateService');
+const db = require('../config/database');
 const {
   startLog,
   markSuccess,
@@ -14,16 +15,12 @@ const {
   markStaleRunningLogs: markAccurateStaleRunningLogs,
 } = require('../models/accurateFetchLogRepository');
 
-const SCHEDULER_CRON = process.env.SRP_SCHEDULER_CRON || '*/20 * * * *';
 const ENABLE_INVENTORY = process.env.SRP_SCHEDULER_ENABLE_INVENTORY !== 'false';
 const ENABLE_SALES_DETAIL = process.env.SRP_SCHEDULER_ENABLE_SALES_DETAIL !== 'false';
 const SALES_DETAIL_DELAY_MS = Number(process.env.SRP_SCHEDULER_SALES_DELAY_MS || 0);
 const JOB_TIMEOUT_MS = Number(process.env.SRP_SCHEDULER_JOB_TIMEOUT_MS || 5 * 60 * 1000);
 const STALE_MINUTES = Number(process.env.SRP_SCHEDULER_STALE_MINUTES || 90);
-const DEFAULT_PAUSED = process.env.SRP_SCHEDULER_DEFAULT_PAUSED === 'true';
 
-// Accurate Scheduler Settings
-const ACCURATE_SCHEDULER_CRON = process.env.ACCURATE_SCHEDULER_CRON || '0 22 * * *';
 const ENABLE_ACCURATE = process.env.ACCURATE_SCHEDULER_ENABLE !== 'false';
 const ENABLE_SALES_INVOICE = process.env.ACCURATE_SCHEDULER_ENABLE_SALES_INVOICE !== 'false';
 const ENABLE_SALES_RECEIPT = process.env.ACCURATE_SCHEDULER_ENABLE_SALES_RECEIPT !== 'false';
@@ -31,12 +28,72 @@ const ENABLE_SALES_ORDER = process.env.ACCURATE_SCHEDULER_ENABLE_SALES_ORDER !==
 const ACCURATE_BATCH_SIZE = Number(process.env.ACCURATE_SCHEDULER_BATCH_SIZE || 50);
 const ACCURATE_BATCH_DELAY = Number(process.env.ACCURATE_SCHEDULER_BATCH_DELAY || 300);
 
+let srpCronExpression = process.env.SRP_SCHEDULER_CRON || '*/20 * * * *';
+let accurateCronExpression = process.env.ACCURATE_SCHEDULER_CRON || '0 22 * * *';
+
 let isRunningSRP = false;
 let isRunningAccurate = false;
-let isPausedSRP = DEFAULT_PAUSED;
+let isPausedSRP = process.env.SRP_SCHEDULER_DEFAULT_PAUSED === 'true';
 let isPausedAccurate = process.env.ACCURATE_SCHEDULER_DEFAULT_PAUSED === 'true';
 let srpCronTask = null;
 let accurateCronTask = null;
+
+// Load scheduler config from database
+const loadSchedulerConfig = async () => {
+  try {
+    const result = await db.query(
+      'SELECT scheduler_name, cron_expression, is_paused FROM scheduler_config'
+    );
+    
+    for (const row of result.rows) {
+      if (row.scheduler_name === 'srp') {
+        srpCronExpression = row.cron_expression;
+        isPausedSRP = row.is_paused;
+      } else if (row.scheduler_name === 'accurate') {
+        accurateCronExpression = row.cron_expression;
+        isPausedAccurate = row.is_paused;
+      }
+    }
+    console.log('✅ Scheduler config loaded from database');
+  } catch (error) {
+    console.warn('⚠️ Failed to load scheduler config from database, using defaults:', error.message);
+  }
+};
+
+// Update scheduler config in database
+const updateSchedulerConfig = async (schedulerName, cronExpression, isPaused) => {
+  try {
+    const result = await db.query(
+      `UPDATE scheduler_config 
+       SET cron_expression = $1, is_paused = $2, updated_at = CURRENT_TIMESTAMP 
+       WHERE scheduler_name = $3 
+       RETURNING *`,
+      [cronExpression, isPaused, schedulerName]
+    );
+    
+    if (result.rows.length === 0) {
+      throw new Error(`Scheduler '${schedulerName}' not found`);
+    }
+    
+    return result.rows[0];
+  } catch (error) {
+    console.error('❌ Failed to update scheduler config:', error);
+    throw error;
+  }
+};
+
+// Get all scheduler configs
+const getAllSchedulerConfigs = async () => {
+  try {
+    const result = await db.query(
+      'SELECT * FROM scheduler_config ORDER BY scheduler_name'
+    );
+    return result.rows;
+  } catch (error) {
+    console.error('❌ Failed to get scheduler configs:', error);
+    throw error;
+  }
+};
 
 const formatDate = (date) => {
   const year = date.getFullYear();
@@ -384,7 +441,10 @@ const runScheduledSync = async () => {
 };
 
 // Initialize scheduler
-function initScheduler() {
+async function initScheduler() {
+  // Load config from database first
+  await loadSchedulerConfig();
+  
   if (srpCronTask) {
     srpCronTask.stop();
   }
@@ -393,13 +453,13 @@ function initScheduler() {
   }
 
   // SRP Scheduler
-  srpCronTask = cron.schedule(SCHEDULER_CRON, async () => {
+  srpCronTask = cron.schedule(srpCronExpression, async () => {
     console.log('⏰ SRP Scheduler tick at', new Date().toISOString());
     await runSRPSync();
   });
 
   // Accurate Scheduler
-  accurateCronTask = cron.schedule(ACCURATE_SCHEDULER_CRON, async () => {
+  accurateCronTask = cron.schedule(accurateCronExpression, async () => {
     console.log('⏰ Accurate Scheduler tick at', new Date().toISOString());
     await runAccurateSync();
   });
@@ -419,9 +479,9 @@ function initScheduler() {
     console.log('▶️ Accurate Scheduler initialized and started automatically');
   }
 
-  console.log(`📅 SRP Scheduler initialized - running on cron "${SCHEDULER_CRON}"`);
-  console.log(`� Accurate Scheduler initialized - running on cron "${ACCURATE_SCHEDULER_CRON}"`);
-  console.log(`�🔧 SRP Settings: ENABLE_INVENTORY=${ENABLE_INVENTORY}, ENABLE_SALES_DETAIL=${ENABLE_SALES_DETAIL}, DEFAULT_PAUSED=${DEFAULT_PAUSED}`);
+  console.log(`📅 SRP Scheduler initialized - running on cron "${srpCronExpression}"`);
+  console.log(`📅 Accurate Scheduler initialized - running on cron "${accurateCronExpression}"`);
+  console.log(`🔧 SRP Settings: ENABLE_INVENTORY=${ENABLE_INVENTORY}, ENABLE_SALES_DETAIL=${ENABLE_SALES_DETAIL}`);
   console.log(`🔧 Accurate Settings: ENABLE_ACCURATE=${ENABLE_ACCURATE}, ENABLE_SALES_INVOICE=${ENABLE_SALES_INVOICE}, ENABLE_SALES_RECEIPT=${ENABLE_SALES_RECEIPT}, ENABLE_SALES_ORDER=${ENABLE_SALES_ORDER}`);
   console.log(`🔧 Batch Settings: SIZE=${ACCURATE_BATCH_SIZE}, DELAY=${ACCURATE_BATCH_DELAY}ms`);
 }
@@ -490,16 +550,67 @@ const resumeAccurateScheduler = () => {
 
 const getSchedulerStatus = () => ({
   srp: {
-    cron: SCHEDULER_CRON,
+    cron: srpCronExpression,
     running: isRunningSRP,
     paused: isPausedSRP,
   },
   accurate: {
-    cron: ACCURATE_SCHEDULER_CRON,
+    cron: accurateCronExpression,
     running: isRunningAccurate,
     paused: isPausedAccurate,
   },
 });
+
+// Update scheduler cron expression and restart
+const updateSchedulerCron = async (schedulerName, cronExpression) => {
+  try {
+    // Validate cron expression
+    if (!cron.validate(cronExpression)) {
+      throw new Error('Invalid cron expression');
+    }
+    
+    // Update in database
+    const config = await updateSchedulerConfig(schedulerName, cronExpression, null);
+    
+    // Update local variable
+    if (schedulerName === 'srp') {
+      srpCronExpression = cronExpression;
+      // Restart SRP scheduler
+      if (srpCronTask) {
+        srpCronTask.stop();
+      }
+      srpCronTask = cron.schedule(srpCronExpression, async () => {
+        console.log('⏰ SRP Scheduler tick at', new Date().toISOString());
+        await runSRPSync();
+      });
+      // Restore pause state
+      if (isPausedSRP) {
+        srpCronTask.stop();
+      }
+      console.log(`✅ SRP Scheduler cron updated to: ${cronExpression}`);
+    } else if (schedulerName === 'accurate') {
+      accurateCronExpression = cronExpression;
+      // Restart Accurate scheduler
+      if (accurateCronTask) {
+        accurateCronTask.stop();
+      }
+      accurateCronTask = cron.schedule(accurateCronExpression, async () => {
+        console.log('⏰ Accurate Scheduler tick at', new Date().toISOString());
+        await runAccurateSync();
+      });
+      // Restore pause state
+      if (isPausedAccurate) {
+        accurateCronTask.stop();
+      }
+      console.log(`✅ Accurate Scheduler cron updated to: ${cronExpression}`);
+    }
+    
+    return config;
+  } catch (error) {
+    console.error(`❌ Failed to update ${schedulerName} scheduler cron:`, error);
+    throw error;
+  }
+};
 
 module.exports = {
   initScheduler,
@@ -513,4 +624,6 @@ module.exports = {
   resumeSRPScheduler,
   resumeAccurateScheduler,
   getSchedulerStatus,
+  getAllSchedulerConfigs,
+  updateSchedulerCron,
 };

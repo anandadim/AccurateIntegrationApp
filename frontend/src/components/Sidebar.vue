@@ -169,6 +169,15 @@
             <span class="nav-icon">🔌</span>
             <span class="nav-text">API Testing</span>
           </a>
+          <a
+            href="#"
+            class="nav-item"
+            :class="{ active: currentView === 'scheduler-config' }"
+            @click.prevent="navigate('scheduler-config')"
+          >
+            <span class="nav-icon">⏰</span>
+            <span class="nav-text">Scheduler Config</span>
+          </a>
         </div>
       </nav>
 

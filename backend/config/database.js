@@ -996,6 +996,28 @@ const initialize = async () => {
       )
     `);
 
+    // Table untuk scheduler configuration
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS scheduler_config (
+        id SERIAL PRIMARY KEY,
+        scheduler_name VARCHAR(50) NOT NULL UNIQUE,
+        cron_expression VARCHAR(100) NOT NULL,
+        is_paused BOOLEAN DEFAULT false,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Insert default scheduler configs if not exists
+    await client.query(`
+      INSERT INTO scheduler_config (scheduler_name, cron_expression, is_paused, description)
+      VALUES 
+        ('srp', '*/20 * * * *', false, 'SRP scheduler - sync inventory and sales detail'),
+        ('accurate', '0 22 * * *', false, 'Accurate scheduler - sync sales invoice, receipt, and order')
+      ON CONFLICT (scheduler_name) DO NOTHING
+    `);
+
    
     await client.query('COMMIT');
     console.log('Database tables initialized successfully');
