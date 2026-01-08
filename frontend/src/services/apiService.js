@@ -705,18 +705,50 @@ async getGoodsSummary(filters = {}) {
     }
   },
 
-  // Sync item from Accurate API
-  async syncItem(itemId, options = {}) {
+  // Check sync status for item mutations
+  async checkItemMutationsSync(options = {}) {
     try {
-      const { db, branch } = options
-      const params = { db }
+      const { branchId, warehouseId, dateFrom, dateTo, dateFilterType = 'createDate' } = options
+      const params = { branchId, dateFilterType }
       
-      if (branch) params.branch = branch
+      if (warehouseId) {
+        params.warehouseId = warehouseId
+      }
+      if (dateFrom) {
+        params.dateFrom = dateFrom
+      }
+      if (dateTo) {
+        params.dateTo = dateTo
+      }
       
-      const response = await axios.post(`${API_BASE}/items/${itemId}/sync`, {}, { params })
+      const response = await axios.get(`${API_BASE}/item-mutations/check-sync`, { params })
       return response.data
     } catch (error) {
-      console.error('Error syncing item:', error)
+      console.error('Error checking item mutations sync:', error)
+      throw error
+    }
+  },
+
+  // Smart sync item mutations
+  async syncItemMutationsSmart(options = {}) {
+    try {
+      const { branchId, warehouseId, dateFrom, dateTo, dateFilterType = 'createDate', batchSize = 50, batchDelay = 300, mode = 'missing' } = options
+      const params = { branchId, dateFilterType, batchSize, batchDelay, mode }
+      
+      if (warehouseId) {
+        params.warehouseId = warehouseId
+      }
+      if (dateFrom) {
+        params.dateFrom = dateFrom
+      }
+      if (dateTo) {
+        params.dateTo = dateTo
+      }
+      
+      const response = await axios.post(`${API_BASE}/item-mutations/sync-smart`, params)
+      return response.data
+    } catch (error) {
+      console.error('Error syncing item mutations smart:', error)
       throw error
     }
   },
@@ -946,6 +978,162 @@ async getGoodsSummary(filters = {}) {
 
     const response = await axios.get(`${API_BASE}/srp/item-master`, { params })
     return response.data
+  },
+
+  // === ITEM MUTATIONS METHODS ===
+
+  // Check item mutations sync status
+  async checkItemMutationsSync(options = {}) {
+    try {
+      const { branchId, dateFrom, dateTo, dateFilterType = 'transDate' } = options
+      const params = { branchId, dateFilterType }
+      
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo) params.dateTo = dateTo
+      
+      const response = await axios.get(`${API_BASE}/item-mutations/check-sync`, { params })
+      return response.data
+    } catch (error) {
+      console.error('Error checking item mutations sync status:', error)
+      throw error
+    }
+  },
+
+  // Count item mutations (dry-run)
+  async countItemMutations(options = {}) {
+    try {
+      const { branchId, dateFrom, dateTo, dateFilterType = 'transDate' } = options
+      const params = { branchId, dateFilterType }
+      
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo) params.dateTo = dateTo
+      
+      const response = await axios.get(`${API_BASE}/item-mutations/count`, { params })
+      return response.data
+    } catch (error) {
+      console.error('Error counting item mutations:', error)
+      throw error
+    }
+  },
+
+  // Smart sync item mutations (only new + updated)
+  async syncItemMutationsSmart(options = {}) {
+    try {
+      const { 
+        branchId, 
+        dateFrom, 
+        dateTo,
+        dateFilterType = 'transDate',
+        batchSize = 50,
+        batchDelay = 300,
+        mode = 'missing'
+      } = options
+      
+      const params = { 
+        branchId,
+        dateFilterType,
+        batchSize,
+        batchDelay,
+        mode
+      }
+      
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo) params.dateTo = dateTo
+      
+      const response = await axios.post(`${API_BASE}/item-mutations/sync-smart`, {}, { 
+        params,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      return response.data
+    } catch (error) {
+      console.error('Error in item mutations smart sync:', error)
+      throw error
+    }
+  },
+
+  // Sync all item mutations (full sync)
+  async syncItemMutations(options = {}) {
+    try {
+      const { 
+        branchId, 
+        dateFrom, 
+        dateTo,
+        dateFilterType = 'transDate',
+        batchSize = 50,
+        batchDelay = 300,
+        streamInsert = true,
+        maxItems
+      } = options
+      
+      const params = { 
+        branchId,
+        dateFilterType,
+        batchSize,
+        batchDelay,
+        streamInsert: streamInsert ? 'true' : 'false'
+      }
+      
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo) params.dateTo = dateTo
+      if (maxItems) params.maxItems = maxItems
+      
+      const response = await axios.post(`${API_BASE}/item-mutations/sync`, null, { params })
+      return response.data
+    } catch (error) {
+      console.error('Error syncing item mutations:', error)
+      throw error
+    }
+  },
+
+  // Get synced item mutations from database
+  async getItemMutations(options = {}) {
+    try {
+      const { branchId, dateFrom, dateTo, mutationType, warehouseId, limit = 100, offset = 0 } = options
+      const params = { limit, offset }
+      
+      if (branchId) params.branchId = branchId
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo) params.dateTo = dateTo
+      if (mutationType) params.mutationType = mutationType
+      if (warehouseId) params.warehouseId = warehouseId
+      
+      const response = await axios.get(`${API_BASE}/item-mutations`, { params })
+      return response.data
+    } catch (error) {
+      console.error('Error fetching item mutations:', error)
+      throw error
+    }
+  },
+
+  // Get item mutation detail by ID
+  async getItemMutationById(id) {
+    try {
+      const response = await axios.get(`${API_BASE}/item-mutations/${id}`)
+      return response.data
+    } catch (error) {
+      console.error('Error fetching item mutation details:', error)
+      throw error
+    }
+  },
+
+  // Get item mutations summary statistics
+  async getItemMutationsSummary(options = {}) {
+    try {
+      const { branchId, dateFrom, dateTo } = options
+      const params = {}
+      
+      if (branchId) params.branchId = branchId
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo) params.dateTo = dateTo
+      
+      const response = await axios.get(`${API_BASE}/item-mutations/summary/stats`, { params })
+      return response.data
+    } catch (error) {
+      console.error('Error fetching item mutations summary:', error)
+      throw error
+    }
   }
 }
 

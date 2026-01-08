@@ -11,6 +11,7 @@ const srpController = require('../controllers/srpController');
 const accurateSchedulerController = require('../controllers/accurateSchedulerController');
 const itemMasterController = require('../controllers/itemMasterController');
 const schedulerConfigController = require('../controllers/schedulerConfigController');
+const itemMutationsController = require('../controllers/itemMutationsController');
 
 
 async function routes(fastify, options) {
@@ -225,6 +226,29 @@ async function routes(fastify, options) {
   // === SRP Item Master Endpoints ===
 
   fastify.get('/item-master/list', itemMasterController.getList);
+
+  // === Item Mutations Endpoints (PostgreSQL) ===
+
+  // Check sync status (compare API vs DB)
+  fastify.get('/item-mutations/check-sync', itemMutationsController.checkSyncStatus);
+
+  // Count mutations without fetching (dry-run)
+  fastify.get('/item-mutations/count', itemMutationsController.countMutations);
+
+  // Sync item mutations from Accurate API to PostgreSQL
+  fastify.post('/item-mutations/sync', itemMutationsController.syncFromAccurate);
+
+  // Smart sync: Only sync new + updated mutations
+  fastify.post('/item-mutations/sync-smart', itemMutationsController.syncSmart);
+
+  // Get item mutations from database
+  fastify.get('/item-mutations', itemMutationsController.getMutations);
+
+  // Get mutation detail by ID
+  fastify.get('/item-mutations/:id', itemMutationsController.getMutationById);
+
+  // Get summary statistics
+  fastify.get('/item-mutations/summary/stats', itemMutationsController.getSummary);
 
 
 }

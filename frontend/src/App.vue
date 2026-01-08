@@ -31,6 +31,7 @@
 
     <!-- Items View -->
     <ItemSync v-if="currentView === 'item-sync'" :branches="branches" />
+    <ItemMutationsSync v-if="currentView === 'item-mutations-sync'" :branches="branches" />
 
     <!-- Item Master View -->
     <SrpItemMasterSync v-if="currentView === 'item-master'" />
@@ -170,6 +171,7 @@ import SalesReceiptSync from './components/SalesReceiptSync.vue'
 import SalesOrderSync from './components/SalesOrderSync.vue'
 import ItemTable from './components/ItemTable.vue'
 import ItemSync from './components/ItemSync.vue'
+import ItemMutationsSync from './components/ItemMutationsSync.vue'
 import CustomerSync from './components/CustomerSync.vue'
 import SalesReturnSync from './components/SalesReturnSync.vue'
 import PurchaseOrderSync from './components/PurchaseOrderSync.vue'
@@ -193,6 +195,7 @@ export default {
     SalesReceiptSync,
     SalesOrderSync,
     ItemSync,
+    ItemMutationsSync,
     SalesReturnSync,
     PurchaseOrderSync,
     SrpInventorySync,
@@ -226,6 +229,7 @@ export default {
         'item-master': 'SRP Integration',
         'customer-sync': 'Customer Sync',
         'item-sync': 'Items Sync',
+        'item-mutations-sync': 'Item Mutations Sync',
         'api': 'API Testing',
         'scheduler-config': 'Scheduler Configuration'
       }

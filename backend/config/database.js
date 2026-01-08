@@ -1012,10 +1012,71 @@ const initialize = async () => {
     // Insert default scheduler configs if not exists
     await client.query(`
       INSERT INTO scheduler_config (scheduler_name, cron_expression, is_paused, description)
-      VALUES 
+      VALUES
         ('srp', '*/20 * * * *', false, 'SRP scheduler - sync inventory and sales detail'),
         ('accurate', '0 22 * * *', false, 'Accurate scheduler - sync sales invoice, receipt, and order')
       ON CONFLICT (scheduler_name) DO NOTHING
+    `);
+
+    // Item Mutations Table (single table with all data)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS item_mutations (
+        id SERIAL PRIMARY KEY,
+        mutation_id BIGINT NOT NULL,
+        mutation_number VARCHAR(50) NOT NULL,
+        branch_id VARCHAR(50) NOT NULL,
+        branch_name VARCHAR(255),
+
+        -- Dates
+        trans_date DATE,
+
+        -- Mutation type (e.g., ADJUSTMENT, TRANSFER, etc.)
+        mutation_type VARCHAR(50),
+
+        -- Warehouse info
+        warehouse_id VARCHAR(50),
+        warehouse_name VARCHAR(255),
+
+        -- Totals
+        total_quantity DECIMAL(15,2) DEFAULT 0,
+        total_value DECIMAL(15,2) DEFAULT 0,
+
+        -- Metadata
+        opt_lock INTEGER DEFAULT 0,
+        raw_data JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+        UNIQUE(mutation_id, branch_id)
+      )
+    `);
+
+    // Indexes for item_mutations
+    await client.query('CREATE INDEX IF NOT EXISTS idx_item_mutations_branch ON item_mutations(branch_id)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_item_mutations_date ON item_mutations(trans_date)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_item_mutations_type ON item_mutations(mutation_type)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_item_mutations_number ON item_mutations(mutation_number)');
+
+    // Trigger for updated_at on item_mutations
+    await client.query(`
+      CREATE OR REPLACE FUNCTION update_item_mutations_updated_at()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        NEW.updated_at = CURRENT_TIMESTAMP;
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql
+    `);
+
+    await client.query(`
+      DROP TRIGGER IF EXISTS trigger_item_mutations_updated_at ON item_mutations
+    `);
+
+    await client.query(`
+      CREATE TRIGGER trigger_item_mutations_updated_at
+        BEFORE UPDATE ON item_mutations
+        FOR EACH ROW
+        EXECUTE FUNCTION update_item_mutations_updated_at()
     `);
 
    

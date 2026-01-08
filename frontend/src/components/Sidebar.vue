@@ -25,14 +25,14 @@
             <a
               href="#"
               class="nav-item dropdown-toggle"
-              :class="{ active: ['invoice-sync', 'receipt-sync', 'order-sync', 'return-sync', 'purchase-invoice-sync', 'purchase-order-sync', 'customer-sync', 'item-sync'].includes(currentView) }"
+              :class="{ active: ['invoice-sync', 'receipt-sync', 'order-sync', 'return-sync', 'purchase-invoice-sync', 'purchase-order-sync', 'customer-sync', 'item-sync', 'item-mutations-sync'].includes(currentView) }"
               @click.prevent="toggleDropdown('accurate')"
             >
               <span class="nav-icon"></span>
               <span class="nav-text">Accurate Integration</span>
-              <span class="dropdown-arrow" :class="{ open: openDropdown === 'accurate' }">▼</span>
+              <span class="dropdown-arrow" :class="{ open: openDropdowns.has('accurate') }">▼</span>
             </a>
-            <div class="dropdown-menu" :class="{ open: openDropdown === 'accurate' }">
+            <div class="dropdown-menu" :class="{ open: openDropdowns.has('accurate') }">
               <div class="dropdown-subtitle">Sales</div>
               <a
                 href="#"
@@ -90,6 +90,38 @@
                 <span class="nav-text">Purchase Order</span>
               </a>
               <div class="dropdown-subtitle">Master Data</div>
+              <div class="dropdown">
+                <a
+                  href="#"
+                  class="nav-item dropdown-toggle"
+                  :class="{ active: ['item-sync', 'item-mutations-sync'].includes(currentView) }"
+                  @click.prevent="toggleDropdown('items')"
+                >
+                  <span class="nav-icon">📦</span>
+                  <span class="nav-text">Items</span>
+                  <span class="dropdown-arrow" :class="{ open: openDropdowns.has('items') }">▼</span>
+                </a>
+                <div class="dropdown-menu" :class="{ open: openDropdowns.has('items') }">
+                  <a
+                    href="#"
+                    class="nav-item dropdown-item"
+                    :class="{ active: currentView === 'item-sync' }"
+                    @click.prevent="navigate('item-sync')"
+                  >
+                    <span class="nav-icon">📋</span>
+                    <span class="nav-text">Item Master</span>
+                  </a>
+                  <a
+                    href="#"
+                    class="nav-item dropdown-item"
+                    :class="{ active: currentView === 'item-mutations-sync' }"
+                    @click.prevent="navigate('item-mutations-sync')"
+                  >
+                    <span class="nav-icon">🔄</span>
+                    <span class="nav-text">Item Mutations</span>
+                  </a>
+                </div>
+              </div>
               <a
                 href="#"
                 class="nav-item dropdown-item"
@@ -98,15 +130,6 @@
               >
                 <span class="nav-icon">👥</span>
                 <span class="nav-text">Customers</span>
-              </a>
-              <a
-                href="#"
-                class="nav-item dropdown-item"
-                :class="{ active: currentView === 'item-sync' }"
-                @click.prevent="navigate('item-sync')"
-              >
-                <span class="nav-icon">📦</span>
-                <span class="nav-text">Items</span>
               </a>
             </div>
           </div>
@@ -124,9 +147,9 @@
             >
               <span class="nav-icon"></span>
               <span class="nav-text">SRP Integration</span>
-              <span class="dropdown-arrow" :class="{ open: openDropdown === 'srp' }">▼</span>
+              <span class="dropdown-arrow" :class="{ open: openDropdowns.has('srp') }">▼</span>
             </a>
-            <div class="dropdown-menu" :class="{ open: openDropdown === 'srp' }">
+            <div class="dropdown-menu" :class="{ open: openDropdowns.has('srp') }">
               <a
                 href="#"
                 class="nav-item dropdown-item"
@@ -207,18 +230,40 @@ export default {
   emits: ['navigate'],
   setup(props, { emit }) {
     const isOpen = ref(false)
-    const openDropdown = ref(null)
+    const openDropdowns = ref(new Set())
 
     const toggleSidebar = () => {
       isOpen.value = !isOpen.value
     }
 
     const toggleDropdown = (dropdownName) => {
-      if (openDropdown.value === dropdownName) {
-        openDropdown.value = null
+      const newSet = new Set(openDropdowns.value)
+      
+      if (newSet.has(dropdownName)) {
+        // If clicking on the same dropdown, remove it
+        newSet.delete(dropdownName)
       } else {
-        openDropdown.value = dropdownName
+        // Add the new dropdown
+        newSet.add(dropdownName)
+        
+        // For nested dropdowns (items), ensure parent (accurate) is also open
+        if (dropdownName === 'items' && !newSet.has('accurate')) {
+          newSet.add('accurate')
+        }
+        
+        // For top-level dropdowns, close other top-level dropdowns but keep nested ones
+        const topLevelDropdowns = ['accurate', 'srp']
+        if (topLevelDropdowns.includes(dropdownName)) {
+          // Remove other top-level dropdowns
+          topLevelDropdowns.forEach(td => {
+            if (td !== dropdownName) {
+              newSet.delete(td)
+            }
+          })
+        }
       }
+      
+      openDropdowns.value = newSet
     }
 
     const navigate = (view) => {
@@ -228,7 +273,7 @@ export default {
 
     return {
       isOpen,
-      openDropdown,
+      openDropdowns,
       toggleSidebar,
       toggleDropdown,
       navigate
@@ -399,10 +444,24 @@ export default {
   background: rgba(0, 0, 0, 0.2);
   border-radius: 0 0 8px 8px;
   margin: 0 -8px;
+  position: relative;
+  z-index: 1;
 }
 
 .dropdown-menu.open {
-  max-height: 500px;
+  max-height: 2000px;
+}
+
+/* Nested dropdown menu styling */
+.dropdown-menu .dropdown-menu {
+  background: rgba(0, 0, 0, 0.3);
+  margin: 0 -8px;
+  z-index: 10;
+  position: relative;
+}
+
+.dropdown-menu .dropdown-menu.open {
+  max-height: 1000px;
 }
 
 .dropdown-item {
