@@ -143,7 +143,15 @@ const accurateService = {
   async fetchDetail(endpoint, id, dbId, branchId = null) {
     try {
       const client = createApiClient(dbId, branchId);
-      const url = `/${endpoint}/detail.do`;
+      
+      // Handle different URL patterns for different endpoints
+      let url;
+      if (endpoint === 'item/stock-mutation-history') {
+        // For stock-mutation-history, use .do with id parameter (same as list)
+        url = `/${endpoint}.do`;
+      } else {
+        url = `/${endpoint}/detail.do`;
+      }
       
       const response = await client.get(url, {
         params: { id }
@@ -164,13 +172,31 @@ const accurateService = {
   async fetchListOnly(endpoint, dbId, filters = {}, branchId = null) {
     try {
       const client = createApiClient(dbId, branchId);
-      const url = `/${endpoint}/list.do`;
+      
+      // Handle different URL patterns for different endpoints
+      let url;
+      if (endpoint === 'item/stock-mutation-history') {
+        url = `/${endpoint}.do`;
+      } else {
+        url = `/${endpoint}/list.do`;
+      }
       
       // Force pageSize to 1000 for efficiency
       const params = {
         ...filters,
         'sp.pageSize': 1000
       };
+      
+      // Add warehouse filter for item mutations if specified
+      // Accurate API uses different filter format for different endpoints
+      if (endpoint === 'item/stock-mutation-history' && filters.warehouseId) {
+        // Try using warehouse.id filter format
+        params['filter.warehouse.id.val'] = filters.warehouseId;
+        params['filter.warehouse.id.op'] = '=';
+      }
+      
+      // Date filters are already in the correct format from the caller
+      // They will be passed as: filter.transDate.val and filter.transDate.op
       
       console.log(`🌐 API Request: ${url}`);
       console.log(`📦 Params:`, JSON.stringify(params, null, 2));
@@ -198,7 +224,11 @@ const accurateService = {
       
       console.log(`✅ Request sent successfully`);
       
+      console.log('📦 Response from Accurate API:', JSON.stringify(response.data, null, 2).substring(0, 1000));
+      
       if (!response.data.s || !response.data.d) {
+        console.error('❌ Invalid response structure. Expected { s: true, d: [...], sp: {...} }');
+        console.error('❌ Actual response:', response.data);
         throw new Error('Invalid response from list endpoint');
       }
       
@@ -208,8 +238,13 @@ const accurateService = {
         pagination: response.data.sp
       };
     } catch (error) {
-      console.error(`Error fetching ${endpoint} list:`, error.response?.data || error.message);
-      throw new Error(`Failed to fetch ${endpoint} list from Accurate API`);
+      console.error(`❌ Error in fetchListOnly:`, error.message);
+      console.error('❌ Error response:', error.response?.data);
+      return {
+        success: false,
+        error: error.message,
+        response: error.response?.data
+      };
     }
   },
 
@@ -217,7 +252,14 @@ const accurateService = {
   async fetchDataWithFilter(endpoint, dbId, filters = {}, branchId = null) {
     try {
       const client = createApiClient(dbId, branchId);
-      const url = `/${endpoint}.do`;
+      
+      // Handle different URL patterns for different endpoints
+      let url;
+      if (endpoint === 'item/stock-mutation-history') {
+        url = `/${endpoint}.do`;
+      } else {
+        url = `/${endpoint}.do`;
+      }
       
       // Force pageSize to 1000 if not already set
       const params = {
