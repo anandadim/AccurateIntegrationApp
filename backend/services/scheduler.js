@@ -44,7 +44,7 @@ const loadSchedulerConfig = async () => {
     const result = await db.query(
       'SELECT scheduler_name, cron_expression, is_paused FROM scheduler_config'
     );
-    
+
     for (const row of result.rows) {
       if (row.scheduler_name === 'srp') {
         srpCronExpression = row.cron_expression;
@@ -65,16 +65,18 @@ const updateSchedulerConfig = async (schedulerName, cronExpression, isPaused) =>
   try {
     const result = await db.query(
       `UPDATE scheduler_config 
-       SET cron_expression = $1, is_paused = $2, updated_at = CURRENT_TIMESTAMP 
+       SET cron_expression = COALESCE($1, cron_expression), 
+           is_paused = COALESCE($2, is_paused), 
+           updated_at = CURRENT_TIMESTAMP 
        WHERE scheduler_name = $3 
        RETURNING *`,
       [cronExpression, isPaused, schedulerName]
     );
-    
+
     if (result.rows.length === 0) {
       throw new Error(`Scheduler '${schedulerName}' not found`);
     }
-    
+
     return result.rows[0];
   } catch (error) {
     console.error('❌ Failed to update scheduler config:', error);
@@ -359,7 +361,7 @@ const runSRPSync = async () => {
   try {
     isRunningSRP = true;
     console.log(`🚀 SRP Scheduler run started for ${targetDate}`);
-    
+
     // Mark stale SRP logs
     const srpMarked = await markStaleRunningLogs({ olderThanMinutes: STALE_MINUTES });
     if (srpMarked > 0) {
@@ -407,7 +409,7 @@ const runAccurateSync = async () => {
   try {
     isRunningAccurate = true;
     console.log(`🚀 Accurate Scheduler run started for ${targetDate}`);
-    
+
     // Mark stale Accurate logs
     const accurateMarked = await markAccurateStaleRunningLogs({ olderThanMinutes: STALE_MINUTES });
     if (accurateMarked > 0) {
@@ -444,7 +446,7 @@ const runScheduledSync = async () => {
 async function initScheduler() {
   // Load config from database first
   await loadSchedulerConfig();
-  
+
   if (srpCronTask) {
     srpCronTask.stop();
   }
@@ -568,10 +570,10 @@ const updateSchedulerCron = async (schedulerName, cronExpression) => {
     if (!cron.validate(cronExpression)) {
       throw new Error('Invalid cron expression');
     }
-    
+
     // Update in database
     const config = await updateSchedulerConfig(schedulerName, cronExpression, null);
-    
+
     // Update local variable
     if (schedulerName === 'srp') {
       srpCronExpression = cronExpression;
@@ -604,10 +606,44 @@ const updateSchedulerCron = async (schedulerName, cronExpression) => {
       }
       console.log(`✅ Accurate Scheduler cron updated to: ${cronExpression}`);
     }
-    
+
     return config;
   } catch (error) {
     console.error(`❌ Failed to update ${schedulerName} scheduler cron:`, error);
+    throw error;
+  }
+};
+
+// Update scheduler status (pause/resume)
+const updateSchedulerStatus = async (schedulerName, isPaused) => {
+  try {
+    // Update in database
+    const config = await updateSchedulerConfig(schedulerName, null, isPaused);
+
+    // Update local variable and control cron task
+    if (schedulerName === 'srp') {
+      isPausedSRP = isPaused;
+      if (isPaused) {
+        if (srpCronTask) srpCronTask.stop();
+        console.log('⏸️ SRP Scheduler paused via API');
+      } else {
+        if (srpCronTask) srpCronTask.start();
+        console.log('▶️ SRP Scheduler resumed via API');
+      }
+    } else if (schedulerName === 'accurate') {
+      isPausedAccurate = isPaused;
+      if (isPaused) {
+        if (accurateCronTask) accurateCronTask.stop();
+        console.log('⏸️ Accurate Scheduler paused via API');
+      } else {
+        if (accurateCronTask) accurateCronTask.start();
+        console.log('▶️ Accurate Scheduler resumed via API');
+      }
+    }
+
+    return config;
+  } catch (error) {
+    console.error(`❌ Failed to update ${schedulerName} scheduler status:`, error);
     throw error;
   }
 };
@@ -626,4 +662,5 @@ module.exports = {
   getSchedulerStatus,
   getAllSchedulerConfigs,
   updateSchedulerCron,
+  updateSchedulerStatus,
 };

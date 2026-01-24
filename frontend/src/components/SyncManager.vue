@@ -595,19 +595,16 @@ export default {
       checkRelationsResult.value = null
 
       try {
-        const params = new URLSearchParams({
+        const result = await apiService.checkRelationsStatus({
           branchId: selectedBranch.value,
           dateFrom: dateFrom.value,
           dateTo: dateTo.value
         })
 
-        const response = await fetch(`/api/sales-invoices/check-relations-status?${params}`)
-        const data = await response.json()
-
-        if (response.ok && data.success) {
-          checkRelationsResult.value = data
+        if (result.success) {
+          checkRelationsResult.value = result
         } else {
-          error.value = `❌ ${data.error || 'Failed to check relations status'}`
+          error.value = `❌ ${result.error || 'Failed to check relations status'}`
         }
       } catch (err) {
         error.value = `❌ Error: ${err.message}`
@@ -629,29 +626,19 @@ export default {
       extractResult.value = null
 
       try {
-        const params = new URLSearchParams({
+        const result = await apiService.extractRelations({
           branchId: selectedBranch.value,
           dateFrom: dateFrom.value,
           dateTo: dateTo.value
         })
 
-        const response = await fetch(`/api/sales-invoices/extract-relations?${params}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({})
-        })
-
-        const data = await response.json()
-
-        if (response.ok && data.success) {
-          extractResult.value = data
-          extractStatus.value = `✅ ${data.message}`
+        if (result.success) {
+          extractResult.value = result
+          extractStatus.value = `✅ ${result.message}`
           // Refresh check relations status
           await checkRelationsStatus()
         } else {
-          error.value = `❌ ${data.error || 'Failed to extract relations'}`
+          error.value = `❌ ${result.error || 'Failed to extract relations'}`
         }
       } catch (err) {
         error.value = `❌ Error: ${err.message}`

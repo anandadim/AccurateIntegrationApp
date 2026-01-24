@@ -1,5 +1,5 @@
 import axios from 'axios'
-//  const API_BASE = import.meta.env.VITE_API_BASE ?? import.meta.env.VITE_API_URL ?? '/api';
+//const API_BASE = import.meta.env.VITE_API_BASE ?? import.meta.env.VITE_API_URL ?? '/api';
 
 const API_BASE = '/api'
 
@@ -9,7 +9,7 @@ const apiService = {
     const response = await axios.get(`${API_BASE}${url}`);
     return response.data;
   },
-  
+
   // Helper method for POST requests
   async post(url, data) {
     const response = await axios.post(`${API_BASE}${url}`, data);
@@ -192,7 +192,7 @@ const apiService = {
     try {
       const params = { dbId }
       if (branchId) params.branchId = branchId
-      
+
       const response = await axios.get(`${API_BASE}/data/${endpoint}`, { params })
       return response.data
     } catch (error) {
@@ -217,11 +217,11 @@ const apiService = {
     try {
       const { maxItems = 20, dateFrom, dateTo, branchId } = options
       const params = { dbId, maxItems }
-      
+
       if (dateFrom) params.dateFrom = dateFrom
       if (dateTo) params.dateTo = dateTo
       if (branchId) params.branchId = branchId
-      
+
       const response = await axios.get(`${API_BASE}/details/${endpoint}`, { params })
       return response.data
     } catch (error) {
@@ -235,10 +235,10 @@ const apiService = {
     try {
       const { branchId, dateFrom, dateTo, dateFilterType = 'createdDate' } = options
       const params = { branchId, dateFilterType }
-      
+
       if (dateFrom) params.dateFrom = dateFrom
       if (dateTo) params.dateTo = dateTo
-      
+
       const response = await axios.get(`${API_BASE}/sales-invoices/count`, { params })
       return response.data
     } catch (error) {
@@ -254,29 +254,29 @@ const apiService = {
   async checkReturnSyncStatus(options = {}) {
     const { branchId, dateFrom, dateTo, dateFilterType = 'transDate' } = options
     const params = { branchId, dateFilterType }
-    if(dateFrom) params.dateFrom = dateFrom
-    if(dateTo) params.dateTo = dateTo
+    if (dateFrom) params.dateFrom = dateFrom
+    if (dateTo) params.dateTo = dateTo
     const res = await axios.get(`${API_BASE}/sales-returns/check-sync`, { params })
     return res.data
   },
   // Sync sales returns
   async syncReturns(options = {}) {
-    const { branchId, dateFrom, dateTo, dateFilterType='transDate', batchSize=50, batchDelay=300, maxItems } = options
+    const { branchId, dateFrom, dateTo, dateFilterType = 'transDate', batchSize = 50, batchDelay = 300, maxItems } = options
     const params = { branchId, dateFilterType, batchSize, batchDelay }
-    if(dateFrom) params.dateFrom = dateFrom
-    if(dateTo) params.dateTo = dateTo
-    if(maxItems) params.maxItems = maxItems
+    if (dateFrom) params.dateFrom = dateFrom
+    if (dateTo) params.dateTo = dateTo
+    if (maxItems) params.maxItems = maxItems
     const res = await axios.post(`${API_BASE}/sales-returns/sync`, params)
     return res.data
   },
   // Get returns list
   async getReturns(options = {}) {
-    const { branchId, dateFrom, dateTo, customerId, limit=100, offset=0 } = options
+    const { branchId, dateFrom, dateTo, customerId, limit = 100, offset = 0 } = options
     const params = { limit, offset }
-    if(branchId) params.branchId = branchId
-    if(dateFrom) params.dateFrom = dateFrom
-    if(dateTo) params.dateTo = dateTo
-    if(customerId) params.customerId = customerId
+    if (branchId) params.branchId = branchId
+    if (dateFrom) params.dateFrom = dateFrom
+    if (dateTo) params.dateTo = dateTo
+    if (customerId) params.customerId = customerId
     const res = await axios.get(`${API_BASE}/sales-returns`, { params })
     return res.data
   },
@@ -284,9 +284,9 @@ const apiService = {
   async getReturnSummary(options = {}) {
     const { branchId, dateFrom, dateTo } = options
     const params = {}
-    if(branchId) params.branchId = branchId
-    if(dateFrom) params.dateFrom = dateFrom
-    if(dateTo) params.dateTo = dateTo
+    if (branchId) params.branchId = branchId
+    if (dateFrom) params.dateFrom = dateFrom
+    if (dateTo) params.dateTo = dateTo
     const res = await axios.get(`${API_BASE}/sales-returns/summary/stats`, { params })
     return res.data
   },
@@ -294,29 +294,29 @@ const apiService = {
   async checkReceiptSyncStatus(options = {}) {
     const { branchId, dateFrom, dateTo, dateFilterType = 'createdDate' } = options
     const params = { branchId, dateFilterType }
-    if(dateFrom) params.dateFrom = dateFrom
-    if(dateTo) params.dateTo = dateTo
+    if (dateFrom) params.dateFrom = dateFrom
+    if (dateTo) params.dateTo = dateTo
     const res = await axios.get(`${API_BASE}/sales-receipts/check-sync`, { params })
     return res.data
   },
   // Sync sales receipts (non-stream mode)
   async syncReceipts(options = {}) {
-    const { branchId, dateFrom, dateTo, dateFilterType='createdDate', batchSize=50, batchDelay=300, maxItems } = options
+    const { branchId, dateFrom, dateTo, dateFilterType = 'createdDate', batchSize = 50, batchDelay = 300, maxItems } = options
     const params = { branchId, dateFilterType, batchSize, batchDelay }
-    if(dateFrom) params.dateFrom = dateFrom
-    if(dateTo) params.dateTo = dateTo
-    if(maxItems) params.maxItems = maxItems
+    if (dateFrom) params.dateFrom = dateFrom
+    if (dateTo) params.dateTo = dateTo
+    if (maxItems) params.maxItems = maxItems
     const res = await axios.post(`${API_BASE}/sales-receipts/sync`, params)
     return res.data
   },
   // Get receipts list
   async getReceipts(options = {}) {
-    const { branchId, dateFrom, dateTo, customerId, limit=100, offset=0 } = options
+    const { branchId, dateFrom, dateTo, customerId, limit = 100, offset = 0 } = options
     const params = { limit, offset }
-    if(branchId) params.branchId = branchId
-    if(dateFrom) params.dateFrom = dateFrom
-    if(dateTo) params.dateTo = dateTo
-    if(customerId) params.customerId = customerId
+    if (branchId) params.branchId = branchId
+    if (dateFrom) params.dateFrom = dateFrom
+    if (dateTo) params.dateTo = dateTo
+    if (customerId) params.customerId = customerId
     const res = await axios.get(`${API_BASE}/sales-receipts`, { params })
     return res.data
   },
@@ -324,22 +324,22 @@ const apiService = {
   async getReceiptSummary(options = {}) {
     const { branchId, dateFrom, dateTo } = options
     const params = {}
-    if(branchId) params.branchId = branchId
-    if(dateFrom) params.dateFrom = dateFrom
-    if(dateTo) params.dateTo = dateTo
+    if (branchId) params.branchId = branchId
+    if (dateFrom) params.dateFrom = dateFrom
+    if (dateTo) params.dateTo = dateTo
     const res = await axios.get(`${API_BASE}/sales-receipts/summary/stats`, { params })
     return res.data
   },
 
-// NEW: Check sync status (compare API vs DB)
+  // NEW: Check sync status (compare API vs DB)
   async checkSyncStatus(options = {}) {
     try {
       const { branchId, dateFrom, dateTo, dateFilterType = 'createdDate' } = options
       const params = { branchId, dateFilterType }
-      
+
       if (dateFrom) params.dateFrom = dateFrom
       if (dateTo) params.dateTo = dateTo
-      
+
       const response = await axios.get(`${API_BASE}/sales-invoices/check-sync`, { params })
       return response.data
     } catch (error) {
@@ -351,28 +351,28 @@ const apiService = {
   // NEW: Smart sync (only new + updated)
   async syncSmart(options = {}) {
     try {
-      const { 
-        branchId, 
-        dateFrom, 
-        dateTo, 
+      const {
+        branchId,
+        dateFrom,
+        dateTo,
         dateFilterType = 'createdDate',
         batchSize = 50,
         batchDelay = 300,
         mode = 'missing'  // 'missing' or 'all'
       } = options
-      
-      const params = { 
-        branchId, 
+
+      const params = {
+        branchId,
         dateFilterType,
         batchSize,
         batchDelay,
         mode
       }
-      
+
       if (dateFrom) params.dateFrom = dateFrom
       if (dateTo) params.dateTo = dateTo
-      
-      const response = await axios.post(`${API_BASE}/sales-invoices/sync-smart`, {}, { 
+
+      const response = await axios.post(`${API_BASE}/sales-invoices/sync-smart`, {}, {
         params,
         headers: {
           'Content-Type': 'application/json'
@@ -388,29 +388,29 @@ const apiService = {
   // NEW: Sync invoices
   async syncInvoices(options = {}) {
     try {
-      const { 
-        branchId, 
-        dateFrom, 
-        dateTo, 
+      const {
+        branchId,
+        dateFrom,
+        dateTo,
         dateFilterType = 'createdDate',
         batchSize = 50,
         batchDelay = 300,
         streamInsert = true,
         maxItems
       } = options
-      
-      const params = { 
-        branchId, 
+
+      const params = {
+        branchId,
         dateFilterType,
         batchSize,
         batchDelay,
         streamInsert: streamInsert ? 'true' : 'false'
       }
-      
+
       if (dateFrom) params.dateFrom = dateFrom
       if (dateTo) params.dateTo = dateTo
       if (maxItems) params.maxItems = maxItems
-      
+
       const response = await axios.post(`${API_BASE}/sales-invoices/sync`, null, { params })
       return response.data
     } catch (error) {
@@ -424,12 +424,12 @@ const apiService = {
     try {
       const { branchId, dateFrom, dateTo, customerId, limit = 100, offset = 0 } = options
       const params = { limit, offset }
-      
+
       if (branchId) params.branchId = branchId
       if (dateFrom) params.dateFrom = dateFrom
       if (dateTo) params.dateTo = dateTo
       if (customerId) params.customerId = customerId
-      
+
       const response = await axios.get(`${API_BASE}/sales-invoices`, { params })
       return response.data
     } catch (error) {
@@ -443,11 +443,11 @@ const apiService = {
     try {
       const { branchId, dateFrom, dateTo } = options
       const params = {}
-      
+
       if (branchId) params.branchId = branchId
       if (dateFrom) params.dateFrom = dateFrom
       if (dateTo) params.dateTo = dateTo
-      
+
       const response = await axios.get(`${API_BASE}/sales-invoices/summary/stats`, { params })
       return response.data
     } catch (error) {
@@ -456,56 +456,97 @@ const apiService = {
     }
   },
 
+  // Check relations status (new/updated/unchanged)
+  async checkRelationsStatus(options = {}) {
+    try {
+      const { branchId, dateFrom, dateTo } = options
+      const params = {}
+
+      if (branchId) params.branchId = branchId
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo) params.dateTo = dateTo
+
+      const response = await axios.get(`${API_BASE}/sales-invoices/check-relations-status`, { params })
+      return response.data
+    } catch (error) {
+      console.error('Error checking relations status:', error)
+      throw error
+    }
+  },
+
+  // Extract relations from existing raw_data
+  async extractRelations(options = {}) {
+    try {
+      const { branchId, dateFrom, dateTo } = options
+      const params = {}
+
+      if (branchId) params.branchId = branchId
+      if (dateFrom) params.dateFrom = dateFrom
+      if (dateTo) params.dateTo = dateTo
+
+      const response = await axios.post(`${API_BASE}/sales-invoices/extract-relations`, {}, {
+        params,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      return response.data
+    } catch (error) {
+      console.error('Error extracting relations:', error)
+      throw error
+    }
+  },
+
   // Goods API Methods
-async checkGoodsSyncStatus(branchId) {
-  try {
-    const response = await axios.get(`${API_BASE}/goods/check-sync?branchId=${branchId}`);
-    console.log('API Response:', response); // Debug log
-    return response.data; // Return only the data, not the full response
-  } catch (error) {
-    console.error('Error in checkGoodsSyncStatus:', error);
-    throw error;
-  }
-},
+  async checkGoodsSyncStatus(branchId) {
+    try {
+      const response = await axios.get(`${API_BASE}/goods/check-sync?branchId=${branchId}`);
+      console.log('API Response:', response); // Debug log
+      return response.data; // Return only the data, not the full response
+    } catch (error) {
+      console.error('Error in checkGoodsSyncStatus:', error);
+      throw error;
+    }
+  },
 
-async countGoods() {
-  return this.get('/goods/count');
-},
+  async countGoods() {
+    return this.get('/goods/count');
+  },
 
-async syncGoods(branchId, batchSize = 50, delayMs = 100) {
-  return this.post('/goods/sync', {
-    branchId,
-    batchSize,
-    delayMs,
-    streamInsert: false
-  });
-},
+  async syncGoods(branchId, batchSize = 50, delayMs = 100) {
+    return this.post('/goods/sync', {
+      branchId,
+      batchSize,
+      delayMs,
+      streamInsert: false
+    });
+  },
 
-async getGoods(filters = {}) {
-  const params = new URLSearchParams();
-  if (filters.category_id) params.append('category_id', filters.category_id);
-  if (filters.item_type) params.append('item_type', filters.item_type);
-  if (filters.suspended !== undefined) params.append('suspended', filters.suspended);
-  if (filters.search) params.append('search', filters.search);
-  if (filters.limit) params.append('limit', filters.limit);
-  if (filters.offset !== undefined) params.append('offset', filters.offset);
-  
-  const response = await axios.get(`${API_BASE}/goods?${params.toString()}`);
-  return response.data;
-},
+  async getGoods(filters = {}) {
+    const params = new URLSearchParams();
+    if (filters.category_id) params.append('category_id', filters.category_id);
+    if (filters.item_type) params.append('item_type', filters.item_type);
+    if (filters.suspended !== undefined) params.append('suspended', filters.suspended);
+    if (filters.search) params.append('search', filters.search);
+    if (filters.limit) params.append('limit', filters.limit);
+    if (filters.offset !== undefined) params.append('offset', filters.offset);
 
-async getGoodsById(id) {
-  const response = await axios.get(`${API_BASE}/goods/${id}`);
-  return response.data;
-},
+    const response = await axios.get(`${API_BASE}/goods?${params.toString()}`);
+    return response.data;
+  },
 
-async getGoodsSummary(filters = {}) {
-  const params = new URLSearchParams();
-  if (filters.category_id) params.append('category_id', filters.category_id);
-  if (filters.suspended !== undefined) params.append('suspended', filters.suspended);
-  
-  return this.get(`/goods/summary/stats?${params.toString()}`);
-},
+  async getGoodsById(id) {
+    const response = await axios.get(`${API_BASE}/goods/${id}`);
+    return response.data;
+  },
+
+  async getGoodsSummary(filters = {}) {
+    const params = new URLSearchParams();
+    if (filters.category_id) params.append('category_id', filters.category_id);
+    if (filters.suspended !== undefined) params.append('suspended', filters.suspended);
+
+    return this.get(`/goods/summary/stats?${params.toString()}`);
+  },
 
   // === SALES ORDER METHODS ===
 
@@ -514,10 +555,10 @@ async getGoodsSummary(filters = {}) {
     try {
       const { branchId, dateFrom, dateTo, dateFilterType = 'transDate' } = options
       const params = { branchId, dateFilterType }
-      
+
       if (dateFrom) params.dateFrom = dateFrom
       if (dateTo) params.dateTo = dateTo
-      
+
       const response = await axios.get(`${API_BASE}/sales-orders/check-sync`, { params })
       return response.data
     } catch (error) {
@@ -529,28 +570,28 @@ async getGoodsSummary(filters = {}) {
   // Smart sync sales orders
   async syncOrdersSmart(options = {}) {
     try {
-      const { 
-        branchId, 
-        dateFrom, 
-        dateTo, 
+      const {
+        branchId,
+        dateFrom,
+        dateTo,
         dateFilterType = 'transDate',
         batchSize = 20,
         batchDelay = 500,
         mode = 'missing'
       } = options
-      
-      const params = { 
-        branchId, 
+
+      const params = {
+        branchId,
         dateFilterType,
         batchSize,
         batchDelay,
         mode
       }
-      
+
       if (dateFrom) params.dateFrom = dateFrom
       if (dateTo) params.dateTo = dateTo
-      
-      const response = await axios.post(`${API_BASE}/sales-orders/sync-smart`, {}, { 
+
+      const response = await axios.post(`${API_BASE}/sales-orders/sync-smart`, {}, {
         params,
         headers: {
           'Content-Type': 'application/json'
@@ -568,13 +609,13 @@ async getGoodsSummary(filters = {}) {
     try {
       const { branchId, dateFrom, dateTo, customerId, orderStatus, limit = 100, offset = 0 } = options
       const params = { limit, offset }
-      
+
       if (branchId) params.branchId = branchId
       if (dateFrom) params.dateFrom = dateFrom
       if (dateTo) params.dateTo = dateTo
       if (customerId) params.customerId = customerId
       if (orderStatus) params.orderStatus = orderStatus
-      
+
       const response = await axios.get(`${API_BASE}/sales-orders`, { params })
       return response.data
     } catch (error) {
@@ -588,11 +629,11 @@ async getGoodsSummary(filters = {}) {
     try {
       const { branchId, dateFrom, dateTo } = options
       const params = {}
-      
+
       if (branchId) params.branchId = branchId
       if (dateFrom) params.dateFrom = dateFrom
       if (dateTo) params.dateTo = dateTo
-      
+
       const response = await axios.get(`${API_BASE}/sales-orders/summary/stats`, { params })
       return response.data
     } catch (error) {
@@ -600,17 +641,17 @@ async getGoodsSummary(filters = {}) {
       throw error
     }
   },
-// === ITEM SYNC METHODS ===
+  // === ITEM SYNC METHODS ===
 
   // Check item sync status
   async checkItemSyncStatus(options = {}) {
     try {
       const { branchId, dateFrom, dateTo } = options
       const params = { branchId }
-      
+
       if (dateFrom) params.dateFrom = dateFrom
       if (dateTo) params.dateTo = dateTo
-      
+
       const response = await axios.get(`${API_BASE}/items/check-sync`, { params })
       return response.data
     } catch (error) {
@@ -622,26 +663,26 @@ async getGoodsSummary(filters = {}) {
   // Smart sync items
   async syncItemsSmart(options = {}) {
     try {
-      const { 
-        branchId, 
-        dateFrom, 
+      const {
+        branchId,
+        dateFrom,
         dateTo,
         batchSize = 50,
         batchDelay = 300,
         mode = 'missing'
       } = options
-      
-      const params = { 
+
+      const params = {
         branchId,
         batchSize,
         batchDelay,
         mode
       }
-      
+
       if (dateFrom) params.dateFrom = dateFrom
       if (dateTo) params.dateTo = dateTo
-      
-      const response = await axios.post(`${API_BASE}/items/sync-smart`, {}, { 
+
+      const response = await axios.post(`${API_BASE}/items/sync-smart`, {}, {
         params,
         headers: {
           'Content-Type': 'application/json'
@@ -670,17 +711,17 @@ async getGoodsSummary(filters = {}) {
     return response.data
   },
 
-// === ITEM METHODS ===
+  // === ITEM METHODS ===
 
   // Get items list from Accurate API
   async getItems(options = {}) {
     try {
       const { db, branch, page = 1, q, limit = 100 } = options
       const params = { db, page, limit }
-      
+
       if (branch) params.branch = branch
       if (q) params.q = q
-      
+
       const response = await axios.get(`${API_BASE}/item`, { params })
       return response.data
     } catch (error) {
@@ -694,9 +735,9 @@ async getGoodsSummary(filters = {}) {
     try {
       const { warehouse } = options
       const params = {}
-      
+
       if (warehouse) params.warehouse = warehouse
-      
+
       const response = await axios.get(`${API_BASE}/items/${itemId}`, { params })
       return response.data
     } catch (error) {
@@ -710,7 +751,7 @@ async getGoodsSummary(filters = {}) {
     try {
       const { branchId, warehouseId, dateFrom, dateTo, dateFilterType = 'createDate' } = options
       const params = { branchId, dateFilterType }
-      
+
       if (warehouseId) {
         params.warehouseId = warehouseId
       }
@@ -720,7 +761,7 @@ async getGoodsSummary(filters = {}) {
       if (dateTo) {
         params.dateTo = dateTo
       }
-      
+
       const response = await axios.get(`${API_BASE}/item-mutations/check-sync`, { params })
       return response.data
     } catch (error) {
@@ -734,7 +775,7 @@ async getGoodsSummary(filters = {}) {
     try {
       const { branchId, warehouseId, dateFrom, dateTo, dateFilterType = 'createDate', batchSize = 50, batchDelay = 300, mode = 'missing' } = options
       const params = { branchId, dateFilterType, batchSize, batchDelay, mode }
-      
+
       if (warehouseId) {
         params.warehouseId = warehouseId
       }
@@ -744,7 +785,7 @@ async getGoodsSummary(filters = {}) {
       if (dateTo) {
         params.dateTo = dateTo
       }
-      
+
       const response = await axios.post(`${API_BASE}/item-mutations/sync-smart`, params)
       return response.data
     } catch (error) {
@@ -760,10 +801,10 @@ async getGoodsSummary(filters = {}) {
     try {
       const { branchId, dateFrom, dateTo, dateFilterType = 'createdDate' } = options
       const params = { branchId, dateFilterType }
-      
+
       if (dateFrom) params.dateFrom = dateFrom
       if (dateTo) params.dateTo = dateTo
-      
+
       const response = await axios.get(`${API_BASE}/purchase-invoices/check-sync`, { params })
       return response.data
     } catch (error) {
@@ -777,10 +818,10 @@ async getGoodsSummary(filters = {}) {
     try {
       const { branchId, dateFrom, dateTo, dateFilterType = 'createdDate' } = options
       const params = { branchId, dateFilterType }
-      
+
       if (dateFrom) params.dateFrom = dateFrom
       if (dateTo) params.dateTo = dateTo
-      
+
       const response = await axios.get(`${API_BASE}/purchase-invoices/count`, { params })
       return response.data
     } catch (error) {
@@ -792,28 +833,28 @@ async getGoodsSummary(filters = {}) {
   // Smart sync: Only sync new + updated purchase invoices
   async syncPurchaseInvoicesSmart(options = {}) {
     try {
-      const { 
-        branchId, 
-        dateFrom, 
-        dateTo, 
+      const {
+        branchId,
+        dateFrom,
+        dateTo,
         dateFilterType = 'transDate',
         batchSize = 50,
         batchDelay = 300,
         mode = 'missing'
       } = options
-      
-      const params = { 
-        branchId, 
+
+      const params = {
+        branchId,
         dateFilterType,
         batchSize,
         batchDelay,
         mode
       }
-      
+
       if (dateFrom) params.dateFrom = dateFrom
       if (dateTo) params.dateTo = dateTo
-      
-      const response = await axios.post(`${API_BASE}/purchase-invoices/sync-smart`, null, { 
+
+      const response = await axios.post(`${API_BASE}/purchase-invoices/sync-smart`, null, {
         params,
         headers: {
           'Content-Type': 'application/json'
@@ -829,26 +870,26 @@ async getGoodsSummary(filters = {}) {
   // Sync all purchase invoices (full sync)
   async syncPurchaseInvoices(options = {}) {
     try {
-      const { 
-        branchId, 
-        dateFrom, 
-        dateTo, 
+      const {
+        branchId,
+        dateFrom,
+        dateTo,
         dateFilterType = 'transDate',
         batchSize = 50,
         batchDelay = 300
       } = options
-      
-      const params = { 
-        branchId, 
+
+      const params = {
+        branchId,
         dateFilterType,
         batchSize,
         batchDelay
       }
-      
+
       if (dateFrom) params.dateFrom = dateFrom
       if (dateTo) params.dateTo = dateTo
-      
-      const response = await axios.post(`${API_BASE}/purchase-invoices/sync`, null, { 
+
+      const response = await axios.post(`${API_BASE}/purchase-invoices/sync`, null, {
         params,
         headers: {
           'Content-Type': 'application/json'
@@ -866,12 +907,12 @@ async getGoodsSummary(filters = {}) {
     try {
       const { branchId, dateFrom, dateTo, vendorNo, limit = 100, offset = 0 } = options
       const params = { limit, offset }
-      
+
       if (branchId) params.branchId = branchId
       if (dateFrom) params.dateFrom = dateFrom
       if (dateTo) params.dateTo = dateTo
       if (vendorNo) params.vendorNo = vendorNo
-      
+
       const response = await axios.get(`${API_BASE}/purchase-invoices`, { params })
       return response.data
     } catch (error) {
@@ -885,11 +926,11 @@ async getGoodsSummary(filters = {}) {
     try {
       const { branchId, dateFrom, dateTo } = options
       const params = {}
-      
+
       if (branchId) params.branchId = branchId
       if (dateFrom) params.dateFrom = dateFrom
       if (dateTo) params.dateTo = dateTo
-      
+
       const response = await axios.get(`${API_BASE}/purchase-invoices/summary/stats`, { params })
       return response.data
     } catch (error) {
@@ -897,36 +938,36 @@ async getGoodsSummary(filters = {}) {
       throw error
     }
   }
-,
+  ,
 
   // === PURCHASE ORDER METHODS ===
   // Check sync status for purchase orders
   async checkPurchaseOrderSyncStatus(options = {}) {
     const { branchId, dateFrom, dateTo, dateFilterType = 'createdDate' } = options
     const params = { branchId, dateFilterType }
-    if(dateFrom) params.dateFrom = dateFrom
-    if(dateTo) params.dateTo = dateTo
+    if (dateFrom) params.dateFrom = dateFrom
+    if (dateTo) params.dateTo = dateTo
     const res = await axios.get(`${API_BASE}/purchase-orders/check-sync`, { params })
     return res.data
   },
   // Sync purchase orders (non-stream)
   async syncPurchaseOrders(options = {}) {
-    const { branchId, dateFrom, dateTo, dateFilterType='createdDate', batchSize=50, batchDelay=300, maxItems } = options
+    const { branchId, dateFrom, dateTo, dateFilterType = 'createdDate', batchSize = 50, batchDelay = 300, maxItems } = options
     const params = { branchId, dateFilterType, batchSize, batchDelay }
-    if(dateFrom) params.dateFrom = dateFrom
-    if(dateTo) params.dateTo = dateTo
-    if(maxItems) params.maxItems = maxItems
+    if (dateFrom) params.dateFrom = dateFrom
+    if (dateTo) params.dateTo = dateTo
+    if (maxItems) params.maxItems = maxItems
     const res = await axios.post(`${API_BASE}/purchase-orders/sync`, params)
     return res.data
   },
   // Get purchase orders list from DB
   async getPurchaseOrders(options = {}) {
-    const { branchId, dateFrom, dateTo, vendorNo, limit=100, offset=0 } = options
+    const { branchId, dateFrom, dateTo, vendorNo, limit = 100, offset = 0 } = options
     const params = { limit, offset }
-    if(branchId) params.branchId = branchId
-    if(dateFrom) params.dateFrom = dateFrom
-    if(dateTo) params.dateTo = dateTo
-    if(vendorNo) params.vendorNo = vendorNo
+    if (branchId) params.branchId = branchId
+    if (dateFrom) params.dateFrom = dateFrom
+    if (dateTo) params.dateTo = dateTo
+    if (vendorNo) params.vendorNo = vendorNo
     const res = await axios.get(`${API_BASE}/purchase-orders`, { params })
     return res.data
   },
@@ -934,9 +975,9 @@ async getGoodsSummary(filters = {}) {
   async getPurchaseOrderSummary(options = {}) {
     const { branchId, dateFrom, dateTo } = options
     const params = {}
-    if(branchId) params.branchId = branchId
-    if(dateFrom) params.dateFrom = dateFrom
-    if(dateTo) params.dateTo = dateTo
+    if (branchId) params.branchId = branchId
+    if (dateFrom) params.dateFrom = dateFrom
+    if (dateTo) params.dateTo = dateTo
     const res = await axios.get(`${API_BASE}/purchase-orders/summary/stats`, { params })
     return res.data
   },
@@ -987,10 +1028,10 @@ async getGoodsSummary(filters = {}) {
     try {
       const { branchId, dateFrom, dateTo, dateFilterType = 'transDate' } = options
       const params = { branchId, dateFilterType }
-      
+
       if (dateFrom) params.dateFrom = dateFrom
       if (dateTo) params.dateTo = dateTo
-      
+
       const response = await axios.get(`${API_BASE}/item-mutations/check-sync`, { params })
       return response.data
     } catch (error) {
@@ -1004,10 +1045,10 @@ async getGoodsSummary(filters = {}) {
     try {
       const { branchId, dateFrom, dateTo, dateFilterType = 'transDate' } = options
       const params = { branchId, dateFilterType }
-      
+
       if (dateFrom) params.dateFrom = dateFrom
       if (dateTo) params.dateTo = dateTo
-      
+
       const response = await axios.get(`${API_BASE}/item-mutations/count`, { params })
       return response.data
     } catch (error) {
@@ -1019,28 +1060,28 @@ async getGoodsSummary(filters = {}) {
   // Smart sync item mutations (only new + updated)
   async syncItemMutationsSmart(options = {}) {
     try {
-      const { 
-        branchId, 
-        dateFrom, 
+      const {
+        branchId,
+        dateFrom,
         dateTo,
         dateFilterType = 'transDate',
         batchSize = 50,
         batchDelay = 300,
         mode = 'missing'
       } = options
-      
-      const params = { 
+
+      const params = {
         branchId,
         dateFilterType,
         batchSize,
         batchDelay,
         mode
       }
-      
+
       if (dateFrom) params.dateFrom = dateFrom
       if (dateTo) params.dateTo = dateTo
-      
-      const response = await axios.post(`${API_BASE}/item-mutations/sync-smart`, {}, { 
+
+      const response = await axios.post(`${API_BASE}/item-mutations/sync-smart`, {}, {
         params,
         headers: {
           'Content-Type': 'application/json'
@@ -1056,9 +1097,9 @@ async getGoodsSummary(filters = {}) {
   // Sync all item mutations (full sync)
   async syncItemMutations(options = {}) {
     try {
-      const { 
-        branchId, 
-        dateFrom, 
+      const {
+        branchId,
+        dateFrom,
         dateTo,
         dateFilterType = 'transDate',
         batchSize = 50,
@@ -1066,19 +1107,19 @@ async getGoodsSummary(filters = {}) {
         streamInsert = true,
         maxItems
       } = options
-      
-      const params = { 
+
+      const params = {
         branchId,
         dateFilterType,
         batchSize,
         batchDelay,
         streamInsert: streamInsert ? 'true' : 'false'
       }
-      
+
       if (dateFrom) params.dateFrom = dateFrom
       if (dateTo) params.dateTo = dateTo
       if (maxItems) params.maxItems = maxItems
-      
+
       const response = await axios.post(`${API_BASE}/item-mutations/sync`, null, { params })
       return response.data
     } catch (error) {
@@ -1092,13 +1133,13 @@ async getGoodsSummary(filters = {}) {
     try {
       const { branchId, dateFrom, dateTo, mutationType, warehouseId, limit = 100, offset = 0 } = options
       const params = { limit, offset }
-      
+
       if (branchId) params.branchId = branchId
       if (dateFrom) params.dateFrom = dateFrom
       if (dateTo) params.dateTo = dateTo
       if (mutationType) params.mutationType = mutationType
       if (warehouseId) params.warehouseId = warehouseId
-      
+
       const response = await axios.get(`${API_BASE}/item-mutations`, { params })
       return response.data
     } catch (error) {
@@ -1123,11 +1164,11 @@ async getGoodsSummary(filters = {}) {
     try {
       const { branchId, dateFrom, dateTo } = options
       const params = {}
-      
+
       if (branchId) params.branchId = branchId
       if (dateFrom) params.dateFrom = dateFrom
       if (dateTo) params.dateTo = dateTo
-      
+
       const response = await axios.get(`${API_BASE}/item-mutations/summary/stats`, { params })
       return response.data
     } catch (error) {

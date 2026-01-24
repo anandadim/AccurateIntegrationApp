@@ -5,31 +5,36 @@ const db = require('./config/database');
 const { initScheduler } = require('./services/scheduler');
 
 // const allowedOrigins = [
-//         'http://170.171.172.216:8080',
-//         'http://170.171.172.197:8080'
+//   'http://170.171.172.216:8080',
+//   'http://170.171.172.197:8080',
+//   'http://170.171.172.223:8080',
+//   'http://170.171.172.239:8082',
+//   'http://localhost:5173',
+//   'http://localhost:3000',
+//   'http://localhost:3006'
 // ];
 
 // fastify.register(cors, {
-//         origin: (origin, cb) => {
-//          if(!origin || allowedOrigins.includes(origin)) {
-//           cb(null, true);
-//         } else {
-//          cb(new Error('Not allowed'), false);
-//         }
-//         }
+//   origin: (origin, cb) => {
+//     if (!origin || allowedOrigins.includes(origin)) {
+//       cb(null, true);
+//     } else {
+//       cb(new Error('Not allowed'), false);
+//     }
+//   }
 // }
 // );
 
 // Register CORS
 fastify.register(cors, {
- origin: true
+  origin: true
 });
 
 // Add content type parser for JSON
 fastify.addContentTypeParser('application/json', { parseAs: 'string' }, function (req, body, done) {
   try {
     const json = JSON.parse(body);
-   done(null, json);
+    done(null, json);
   } catch (err) {
     err.statusCode = 400;
     done(err, undefined);
@@ -49,10 +54,10 @@ const start = async () => {
   try {
     // Initialize database
     await db.initialize();
-    
+
     // Initialize scheduler
     initScheduler();
-    
+
     const port = process.env.PORT;
     await fastify.listen({ port, host: '0.0.0.0' });
     console.log(`Server running on http://localhost:${port}`);
