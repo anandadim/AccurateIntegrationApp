@@ -19,8 +19,18 @@
             <span class="config-icon">{{ config.scheduler_name === 'srp' ? '🏪' : '📊' }}</span>
             <h2>{{ config.scheduler_name === 'srp' ? 'SRP Scheduler' : 'Accurate Scheduler' }}</h2>
           </div>
-          <div class="config-status" :class="{ paused: config.is_paused }">
-            {{ config.is_paused ? '⏸️ Paused' : '▶️ Running' }}
+          <div class="config-controls">
+            <div class="config-status" :class="{ paused: config.is_paused }">
+              {{ config.is_paused ? '⏸️ Paused' : '▶️ Running' }}
+            </div>
+            <button 
+              class="btn-toggle" 
+              :class="{ active: !config.is_paused }"
+              @click="toggleStatus(config)"
+              :disabled="updating === config.id"
+            >
+              <span class="toggle-slider"></span>
+            </button>
           </div>
         </div>
 
@@ -170,6 +180,26 @@ export default {
       }
     }
 
+    const toggleStatus = async (config) => {
+      try {
+        updating.value = config.id
+        const newStatus = !config.is_paused
+        
+        await apiService.put('/scheduler/config/status', {
+          schedulerName: config.scheduler_name,
+          isPaused: newStatus
+        })
+        
+        config.is_paused = newStatus
+        // No alert needed for toggle, visual feedback is enough
+      } catch (err) {
+        console.error('Error updating scheduler status:', err)
+        alert(`❌ Failed to update status: ${err.message}`)
+      } finally {
+        updating.value = null
+      }
+    }
+
     const resetConfig = (config) => {
       config.cron_expression = config.original_cron
     }
@@ -197,6 +227,7 @@ export default {
       updating,
       loadConfigs,
       updateConfig,
+      toggleStatus,
       resetConfig,
       formatDate
     }
@@ -300,6 +331,49 @@ export default {
 .config-status.paused {
   background: #fff3e0;
   color: #e65100;
+}
+
+.config-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Toggle Switch */
+.btn-toggle {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background-color: #e0e0e0;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  transition: background-color 0.2s ease;
+}
+
+.btn-toggle.active {
+  background-color: #42b983;
+}
+
+.btn-toggle:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.toggle-slider {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  transition: transform 0.2s ease;
+  transform: translateX(0);
+}
+
+.btn-toggle.active .toggle-slider {
+  transform: translateX(20px);
 }
 
 .config-description {

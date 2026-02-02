@@ -51,7 +51,7 @@ async function routes(fastify, options) {
 
   // === Item Sync Endpoints ===
   fastify.get('/items/check-sync', itemController.checkSyncStatus);
-  
+
   fastify.post('/items/sync-smart', itemController.syncItemsSmart);
 
   // === Customer Endpoints ===
@@ -61,16 +61,16 @@ async function routes(fastify, options) {
   fastify.get('/customers/:id', customerController.getCustomerById);
 
   // === Sales Invoice Endpoints (PostgreSQL) ===
-  
+
   // Check sync status (compare API vs DB)
   fastify.get('/sales-invoices/check-sync', salesInvoiceController.checkSyncStatus);
-  
+
   // Count invoices without fetching (dry-run)
   fastify.get('/sales-invoices/count', salesInvoiceController.countInvoices);
-  
+
   // Sync sales invoices from Accurate API to PostgreSQL
   fastify.post('/sales-invoices/sync', salesInvoiceController.syncFromAccurate);
-  
+
   // Smart sync: Only sync new + updated invoices
   fastify.post('/sales-invoices/sync-smart', salesInvoiceController.syncSmart);
 
@@ -82,63 +82,63 @@ async function routes(fastify, options) {
 
   // Get sales invoice relations from database
   fastify.get('/sales-invoice-relations', salesInvoiceController.getRelations);
-  
+
   // Get sales invoices from database
   fastify.get('/sales-invoices', salesInvoiceController.getInvoices);
-  
+
   // Get invoice detail by ID
   fastify.get('/sales-invoices/:id', salesInvoiceController.getInvoiceById);
-  
+
   // Get summary statistics
   fastify.get('/sales-invoices/summary/stats', salesInvoiceController.getSummary);
 
   // === Sales Order Endpoints (PostgreSQL) ===
-  
+
   // Check sync status (compare API vs DB)
   fastify.get('/sales-orders/check-sync', salesOrderController.checkSyncStatus);
-  
+
   // Smart sync: Only sync new + updated orders
   fastify.post('/sales-orders/sync-smart', salesOrderController.syncSmart);
-  
+
   // Get sales orders from database
   fastify.get('/sales-orders', salesOrderController.getOrders);
-  
+
   // Get order detail by ID
   fastify.get('/sales-orders/:id', salesOrderController.getOrderById);
-  
+
   // Get summary statistics
   fastify.get('/sales-orders/summary/stats', salesOrderController.getSummary);
 
   // === Sales Receipt Endpoints (PostgreSQL) ===
   // Check sync status (compare API vs DB)
   fastify.get('/sales-receipts/check-sync', salesReceiptController.checkSyncStatus);
-  
+
   // Sync sales receipts from Accurate API to PostgreSQL
   fastify.post('/sales-receipts/sync', salesReceiptController.syncFromAccurate);
-  
+
   // Get sales receipts from database
   fastify.get('/sales-receipts', salesReceiptController.getReceipts);
-  
+
   // Get receipt detail by ID
   fastify.get('/sales-receipts/:id', salesReceiptController.getReceiptById);
-  
+
   // Get summary statistics
   fastify.get('/sales-receipts/summary/stats', salesReceiptController.getSummary);
 
-  
+
   // === Sales Return Endpoints (PostgreSQL) ===
   // Check sync status (compare API vs DB)
   fastify.get('/sales-returns/check-sync', salesReturnController.checkSyncStatus);
-  
+
   // Sync sales returns from Accurate API to PostgreSQL
   fastify.post('/sales-returns/sync', salesReturnController.syncFromAccurate);
-  
+
   // Get sales returns from database
   fastify.get('/sales-returns', salesReturnController.getReturns);
-  
+
   // Get return detail by ID
   fastify.get('/sales-returns/:id', salesReturnController.getReturnById);
-  
+
   // Get summary statistics
   fastify.get('/sales-returns/summary/stats', salesReturnController.getSummary);
 
@@ -159,25 +159,25 @@ async function routes(fastify, options) {
   fastify.get('/purchase-orders/summary/stats', purchaseOrderController.getSummary);
 
   // === Purchase Invoice Endpoints (PostgreSQL) ===
-  
+
   // Check sync status (compare API vs DB)
   fastify.get('/purchase-invoices/check-sync', purchaseInvoiceController.checkSyncStatus);
-  
+
   // Smart sync: Only sync new + updated invoices
   fastify.post('/purchase-invoices/sync-smart', purchaseInvoiceController.syncSmart);
-  
+
   // Count invoices without fetching (dry-run)
   fastify.get('/purchase-invoices/count', purchaseInvoiceController.countInvoices);
-  
+
   // Sync purchase invoices from Accurate API to PostgreSQL
   fastify.post('/purchase-invoices/sync', purchaseInvoiceController.syncFromAccurate);
-  
+
   // Get purchase invoices from database
   fastify.get('/purchase-invoices', purchaseInvoiceController.getInvoices);
-  
+
   // Get invoice detail by ID
   fastify.get('/purchase-invoices/:id', purchaseInvoiceController.getInvoiceById);
-  
+
   // Get summary statistics
   fastify.get('/purchase-invoices/summary/stats', purchaseInvoiceController.getSummary);
 
@@ -222,6 +222,7 @@ async function routes(fastify, options) {
 
   fastify.get('/scheduler/config', schedulerConfigController.getAll);
   fastify.put('/scheduler/config/cron', schedulerConfigController.updateCron);
+  fastify.put('/scheduler/config/status', schedulerConfigController.updateStatus);
 
   // === SRP Item Master Endpoints ===
 

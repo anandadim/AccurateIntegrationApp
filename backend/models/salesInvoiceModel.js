@@ -58,8 +58,8 @@ const salesInvoiceModel = {
 
       // Delete existing items (for update case)
       await client.query(
-        'DELETE FROM sales_invoice_items WHERE invoice_id = $1',
-        [invoiceDbId]
+        'DELETE FROM sales_invoice_items WHERE invoice_id = $1 AND branch_id = $2',
+        [invoiceData.invoice_id, invoiceData.branch_id]
       );
 
       // Insert items
@@ -75,7 +75,7 @@ const salesInvoiceModel = {
 
         for (const item of items) {
           await client.query(itemQuery, [
-            invoiceDbId,
+            invoiceData.invoice_id,
             invoiceData.branch_id,
             item.seq,
             item.item_no,
@@ -133,7 +133,7 @@ const salesInvoiceModel = {
         AND trans_date BETWEEN $2 AND $3
       ORDER BY invoice_id
     `;
-    
+
     const result = await db.query(query, [branchId, dateFrom, dateTo]);
     return result.rows;
   },

@@ -1,10 +1,14 @@
 node_modules/
 .env
+.env.example
+.env.backup
 *.db
 *.log
 dist/
 .DS_Store
 backend/config/branches.json
+backend/config/srp-branches.json
+
 
 # Test output files
 test-output.txt
