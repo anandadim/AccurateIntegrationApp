@@ -2,6 +2,9 @@ const cron = require('node-cron');
 const srpService = require('./srpService');
 const accurateService = require('./accurateService');
 const db = require('../config/database');
+const salesInvoiceController = require('../controllers/salesInvoiceController');
+const salesOrderController = require('../controllers/salesOrderController');
+const salesReceiptController = require('../controllers/salesReceiptController');
 const {
   startLog,
   markSuccess,
@@ -25,8 +28,8 @@ const ENABLE_ACCURATE = process.env.ACCURATE_SCHEDULER_ENABLE !== 'false';
 const ENABLE_SALES_INVOICE = process.env.ACCURATE_SCHEDULER_ENABLE_SALES_INVOICE !== 'false';
 const ENABLE_SALES_RECEIPT = process.env.ACCURATE_SCHEDULER_ENABLE_SALES_RECEIPT !== 'false';
 const ENABLE_SALES_ORDER = process.env.ACCURATE_SCHEDULER_ENABLE_SALES_ORDER !== 'false';
-const ACCURATE_BATCH_SIZE = Number(process.env.ACCURATE_SCHEDULER_BATCH_SIZE || 50);
-const ACCURATE_BATCH_DELAY = Number(process.env.ACCURATE_SCHEDULER_BATCH_DELAY || 300);
+const ACCURATE_BATCH_SIZE = Number(process.env.ACCURATE_SCHEDULER_BATCH_SIZE || 10);
+const ACCURATE_BATCH_DELAY = Number(process.env.ACCURATE_SCHEDULER_BATCH_DELAY || 100);
 
 let srpCronExpression = process.env.SRP_SCHEDULER_CRON || '*/20 * * * *';
 let accurateCronExpression = process.env.ACCURATE_SCHEDULER_CRON || '0 22 * * *';
@@ -235,7 +238,11 @@ const runSalesInvoiceJob = async ({ branch, targetDate }) => {
           batchDelay: ACCURATE_BATCH_DELAY
         },
         branch.id,
-        branch.name
+        branch.name,
+        // Callback for each batch
+        async (batchDetails) => {
+          return await salesInvoiceController._saveBatch(batchDetails, branch.id, branch.name);
+        }
       ),
       JOB_TIMEOUT_MS,
       `[SalesInvoice] Branch ${branch.id}`
@@ -272,7 +279,7 @@ const runSalesReceiptJob = async ({ branch, targetDate }) => {
     console.log(`🔁 [SalesReceipt] Branch ${branch.id} (${branch.name}) - start`);
 
     const result = await withTimeout(
-      accurateService.fetchListWithDetails(
+      accurateService.fetchAndStreamInsert(
         'sales-receipt',
         branch.dbId,
         {
@@ -282,13 +289,18 @@ const runSalesReceiptJob = async ({ branch, targetDate }) => {
           batchSize: ACCURATE_BATCH_SIZE,
           batchDelay: ACCURATE_BATCH_DELAY
         },
-        branch.id
+        branch.id,
+        branch.name,
+        // Callback for each batch
+        async (batchDetails) => {
+          return await salesReceiptController._saveBatch(batchDetails, branch.id, branch.name);
+        }
       ),
       JOB_TIMEOUT_MS,
       `[SalesReceipt] Branch ${branch.id}`
     );
 
-    const fetched = result?.items?.length ?? 0;
+    const fetched = result?.totalFetched ?? 0;
     await markAccurateSuccess(logId, fetched);
     console.log(`✅ [SalesReceipt] Branch ${branch.id} - fetched ${fetched} rows`);
   } catch (error) {
@@ -330,7 +342,11 @@ const runSalesOrderJob = async ({ branch, targetDate }) => {
           batchDelay: ACCURATE_BATCH_DELAY
         },
         branch.id,
-        branch.name
+        branch.name,
+        // Callback for each batch
+        async (batchDetails) => {
+          return await salesOrderController._saveBatch(batchDetails, branch.id, branch.name);
+        }
       ),
       JOB_TIMEOUT_MS,
       `[SalesOrder] Branch ${branch.id}`

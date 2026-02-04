@@ -13,6 +13,17 @@
     </div>
 
     <div v-else class="config-list">
+      <!-- Global Pause Warning -->
+      <div v-if="globalStatus && globalStatus.paused" class="global-pause-banner">
+        <div class="banner-content">
+          <span class="banner-icon">⚠️</span>
+          <div class="banner-text">
+            <h3>Global Pause Active</h3>
+            <p>All schedulers are currently paused in memory. This overrides the database settings below. Resume via the Activity Widget to restore normal operation.</p>
+          </div>
+        </div>
+      </div>
+
       <div v-for="config in configs" :key="config.id" class="config-card">
         <div class="config-header">
           <div class="config-title">
@@ -144,15 +155,27 @@ export default {
     const error = ref(null)
     const updating = ref(null)
 
+    const globalStatus = ref(null)
+
     const loadConfigs = async () => {
       try {
         loading.value = true
         error.value = null
-        const response = await apiService.get('/scheduler/config')
-        configs.value = response.data.map(config => ({
+        
+        // Fetch configs and global status in parallel
+        const [configResponse, statusResponse] = await Promise.all([
+          apiService.get('/scheduler/config'),
+          apiService.getSrpSchedulerStatus()
+        ])
+
+        configs.value = configResponse.data.map(config => ({
           ...config,
           original_cron: config.cron_expression
         }))
+        
+        if (statusResponse.success) {
+          globalStatus.value = statusResponse.data
+        }
       } catch (err) {
         error.value = err.message || 'Failed to load scheduler configurations'
         console.error('Error loading scheduler configs:', err)
@@ -222,6 +245,7 @@ export default {
 
     return {
       configs,
+      globalStatus,
       loading,
       error,
       updating,
@@ -567,5 +591,37 @@ export default {
   font-family: 'Courier New', monospace;
   font-size: 12px;
   color: #42b983;
+}
+
+.global-pause-banner {
+  background: #fff3e0;
+  border: 1px solid #ffcc80;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.banner-content {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.banner-icon {
+  font-size: 24px;
+}
+
+.banner-text h3 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  color: #e65100;
+  font-weight: 600;
+}
+
+.banner-text p {
+  margin: 0;
+  font-size: 14px;
+  color: #f57c00;
+  line-height: 1.4;
 }
 </style>
