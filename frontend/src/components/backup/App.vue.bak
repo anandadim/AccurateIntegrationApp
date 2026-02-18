@@ -32,7 +32,6 @@
     <!-- Items View -->
     <ItemSync v-if="currentView === 'item-sync'" :branches="branches" />
     <ItemMutationsSync v-if="currentView === 'item-mutations-sync'" :branches="branches" />
-    <StockOnHand v-if="currentView === 'stock-on-hand'" :branches="branches" />
 
     <!-- Item Master View -->
     <SrpItemMasterSync v-if="currentView === 'item-master'" />
@@ -173,7 +172,6 @@ import SalesOrderSync from './components/SalesOrderSync.vue'
 import ItemTable from './components/ItemTable.vue'
 import ItemSync from './components/ItemSync.vue'
 import ItemMutationsSync from './components/ItemMutationsSync.vue'
-import StockOnHand from './components/StockOnHand.vue'
 import CustomerSync from './components/CustomerSync.vue'
 import SalesReturnSync from './components/SalesReturnSync.vue'
 import PurchaseOrderSync from './components/PurchaseOrderSync.vue'
@@ -198,7 +196,6 @@ export default {
     SalesOrderSync,
     ItemSync,
     ItemMutationsSync,
-    StockOnHand,
     SalesReturnSync,
     PurchaseOrderSync,
     SrpInventorySync,
@@ -233,7 +230,6 @@ export default {
         'customer-sync': 'Customer Sync',
         'item-sync': 'Items Sync',
         'item-mutations-sync': 'Item Mutations Sync',
-        'stock-on-hand': 'Stock on Hand',
         'api': 'API Testing',
         'scheduler-config': 'Scheduler Configuration'
       }

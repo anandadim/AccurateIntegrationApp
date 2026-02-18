@@ -35,6 +35,66 @@
         "appToken": "snj:MzC-Kc14mZs"
       },
       "active": true
+    },
+    {
+      "id": "023",
+      "name": "TDN Citayam Depok",
+      "baseUrl": "https://api-merch-prod.snjsystem.com/api/merch-api",
+      "locationCode": "023",
+      "storeCode": "023",
+      "credentials": {
+        "appKey": "snj-merch",
+        "appToken": "snj:MzC-Kc14mZs"
+      },
+      "active": true
+    },
+    {
+      "id": "026",
+      "name": "TDN Kebagusan Jakarta Selatan",
+      "baseUrl": "https://api-merch-prod.snjsystem.com/api/merch-api",
+      "locationCode": "026",
+      "storeCode": "026",
+      "credentials": {
+        "appKey": "snj-merch",
+        "appToken": "snj:MzC-Kc14mZs"
+      },
+      "active": true
+    },
+    {
+      "id": "027",
+      "name": "TDN Ir Juanda",
+      "baseUrl": "https://api-merch-prod.snjsystem.com/api/merch-api",
+      "locationCode": "027",
+      "storeCode": "027",
+      "credentials": {
+        "appKey": "snj-merch",
+        "appToken": "snj:MzC-Kc14mZs"
+      },
+      "active": true
+    },
+    {
+      "id": "029",
+      "name": "TDN Penggilingan Raya",
+      "baseUrl": "https://api-merch-prod.snjsystem.com/api/merch-api",
+      "locationCode": "029",
+      "storeCode": "029",
+      "credentials": {
+        "appKey": "snj-merch",
+        "appToken": "snj:MzC-Kc14mZs"
+      },
+      "active": true
+    },
+    {
+      "id": "030",
+      "name": "TDN Grand Poris",
+      "baseUrl": "https://api-merch-prod.snjsystem.com/api/merch-api",
+      "locationCode": "030",
+      "storeCode": "030",
+      "credentials": {
+        "appKey": "snj-merch",
+        "appToken": "snj:MzC-Kc14mZs"
+      },
+      "active": true
     }
   ]
 }

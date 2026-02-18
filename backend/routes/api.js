@@ -12,6 +12,7 @@ const accurateSchedulerController = require('../controllers/accurateSchedulerCon
 const itemMasterController = require('../controllers/itemMasterController');
 const schedulerConfigController = require('../controllers/schedulerConfigController');
 const itemMutationsController = require('../controllers/itemMutationsController');
+const stockOnHandController = require('../controllers/stockOnHandController');
 
 
 async function routes(fastify, options) {
@@ -251,6 +252,12 @@ async function routes(fastify, options) {
   // Get summary statistics
   fastify.get('/item-mutations/summary/stats', itemMutationsController.getSummary);
 
+  // === Stock on Hand ===
+  fastify.get('/stock-on-hand', stockOnHandController.fetchStockOnHand);
+  fastify.get('/stock-on-hand/db', stockOnHandController.getFromDatabase);
+  fastify.get('/stock-on-hand/check-sync', stockOnHandController.checkSyncStatus);
+  fastify.post('/stock-on-hand/save', stockOnHandController.saveToDatabase);
+  fastify.get('/stock-on-hand/warehouses', stockOnHandController.getWarehouses);
 
 }
 

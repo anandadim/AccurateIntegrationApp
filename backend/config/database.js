@@ -1101,6 +1101,55 @@ const initialize = async () => {
         EXECUTE FUNCTION update_item_mutations_updated_at()
     `);
 
+    // Stock on Hand table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS stock_on_hand (
+        id SERIAL PRIMARY KEY,
+        item_id BIGINT NOT NULL,
+        item_no VARCHAR(100) NOT NULL,
+        item_name VARCHAR(255),
+        category VARCHAR(100),
+        unit_name VARCHAR(50),
+        warehouse_id INTEGER NOT NULL,
+        warehouse_name VARCHAR(100),
+        branch_id VARCHAR(50) NOT NULL,
+        quantity DECIMAL(15,6) DEFAULT 0,
+        balance_unit VARCHAR(50),
+        last_fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_changed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(item_id, warehouse_id, branch_id)
+      )
+    `);
+
+    await client.query('CREATE INDEX IF NOT EXISTS idx_stock_on_hand_branch ON stock_on_hand(branch_id)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_stock_on_hand_warehouse ON stock_on_hand(warehouse_id)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_stock_on_hand_item ON stock_on_hand(item_id)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_stock_on_hand_item_no ON stock_on_hand(item_no)');
+
+    // Trigger for updated_at on stock_on_hand
+    await client.query(`
+      CREATE OR REPLACE FUNCTION update_stock_on_hand_updated_at()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        NEW.updated_at = CURRENT_TIMESTAMP;
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql
+    `);
+
+    await client.query(`
+      DROP TRIGGER IF EXISTS trigger_stock_on_hand_updated_at ON stock_on_hand
+    `);
+
+    await client.query(`
+      CREATE TRIGGER trigger_stock_on_hand_updated_at
+        BEFORE UPDATE ON stock_on_hand
+        FOR EACH ROW
+        EXECUTE FUNCTION update_stock_on_hand_updated_at()
+    `);
+
    
     await client.query('COMMIT');
     console.log('Database tables initialized successfully');
