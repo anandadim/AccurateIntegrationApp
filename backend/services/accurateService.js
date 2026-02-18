@@ -114,7 +114,7 @@ const accurateService = {
   },
 
   // Fetch data dari endpoint tertentu
-  async fetchData(endpoint, dbId, branchId = null) {
+  async fetchData(endpoint, dbId, branchId = null, extraParams = {}) {
     try {
       const client = createApiClient(dbId, branchId);
       
@@ -122,11 +122,12 @@ const accurateService = {
       const url = `/${endpoint}.do`;
       
       // For item endpoints, add fields parameter to get complete data
-      let params = {};
-      if (endpoint.includes('item')) {
+      let params = { ...extraParams };
+      if (endpoint.includes('item') && !endpoint.includes('list-stock')) {
         // Request all necessary fields for complete item data
         params = {
-          'sp.pageSize': 1000,
+          ...params,
+          'sp.pageSize': params['sp.pageSize'] || 1000,
           'fields': 'id,no,name,shortName,itemCategory.name,itemTypeName,itemType,barcode,unit1.name,unit1Name,itemBrand.name,brand.name,tax1Id,tax2Id,percentTaxable,taxIncluded,balance,detailWarehouseData'
         };
       }

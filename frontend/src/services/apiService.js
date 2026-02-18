@@ -22,6 +22,49 @@ const apiService = {
     return response.data;
   },
 
+  // === Stock on Hand ===
+  async fetchStockOnHand(options = {}) {
+    const { branchId, itemFilter, stockFilter, warehouseId } = options
+    const params = { branchId }
+    
+    if (itemFilter) params.itemFilter = itemFilter
+    if (stockFilter) params.stockFilter = stockFilter
+    if (warehouseId) params.warehouseId = warehouseId
+    
+    const response = await axios.get(`${API_BASE}/stock-on-hand`, { params })
+    return response.data
+  },
+
+  async getStockOnHandFromDB(options = {}) {
+    const { branchId, warehouseId, itemNo, itemName, hasStock, limit, offset } = options
+    const params = { branchId }
+    
+    if (warehouseId) params.warehouseId = warehouseId
+    if (itemNo) params.itemNo = itemNo
+    if (itemName) params.itemName = itemName
+    if (hasStock) params.hasStock = hasStock
+    if (limit) params.limit = limit
+    if (offset) params.offset = offset
+    
+    const response = await axios.get(`${API_BASE}/stock-on-hand/db`, { params })
+    return response.data
+  },
+
+  async checkStockOnHandSync(branchId) {
+    const response = await axios.get(`${API_BASE}/stock-on-hand/check-sync`, { params: { branchId } })
+    return response.data
+  },
+
+  async saveStockOnHand(branchId, data) {
+    const response = await axios.post(`${API_BASE}/stock-on-hand/save`, { branchId, data })
+    return response.data
+  },
+
+  async getStockOnHandWarehouses(branchId) {
+    const response = await axios.get(`${API_BASE}/stock-on-hand/warehouses`, { params: { branchId } })
+    return response.data
+  },
+
   // === SNJ Merch (SRP) Item Enquiry ===
   async getSrpBranches() {
     const response = await axios.get(`${API_BASE}/srp/branches`)

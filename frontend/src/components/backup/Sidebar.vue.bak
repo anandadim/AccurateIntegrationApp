@@ -94,7 +94,7 @@
                 <a
                   href="#"
                   class="nav-item dropdown-toggle"
-                  :class="{ active: ['item-sync', 'item-mutations-sync', 'stock-on-hand'].includes(currentView) }"
+                  :class="{ active: ['item-sync', 'item-mutations-sync'].includes(currentView) }"
                   @click.prevent="toggleDropdown('items')"
                 >
                   <span class="nav-icon">📦</span>
@@ -119,15 +119,6 @@
                   >
                     <span class="nav-icon">🔄</span>
                     <span class="nav-text">Item Mutations</span>
-                  </a>
-                  <a
-                    href="#"
-                    class="nav-item dropdown-item"
-                    :class="{ active: currentView === 'stock-on-hand' }"
-                    @click.prevent="navigate('stock-on-hand')"
-                  >
-                    <span class="nav-icon">🏭</span>
-                    <span class="nav-text">Stock on Hand</span>
                   </a>
                 </div>
               </div>
